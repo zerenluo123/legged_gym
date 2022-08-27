@@ -78,12 +78,12 @@
       </geometry>
       <!-- <material name="red"/> -->
     </visual>
-    <!-- <collision>
+    <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <box size=".001 .001 .001"/>
       </geometry>
-    </collision> -->
+    </collision>
   </link>
   <joint name="FR_hip_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0.1881 -0.04675 0"/>
@@ -101,12 +101,12 @@
       </geometry>
       <!-- <material name="orange"/> -->
     </visual>
-    <!-- <collision>
+    <collision>
       <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
       <geometry>
         <cylinder length="0.04" radius="0.046"/>
       </geometry>
-    </collision> -->
+    </collision>
     <inertial>
       <origin rpy="0 0 0" xyz="-0.00541 0.00074 6e-06"/>
       <mass value="0.591"/>
@@ -120,12 +120,12 @@
   </joint>
   <!-- this link is only for collision -->
   <link name="FR_thigh_shoulder">
-    <!-- <collision>
+    <collision>
       <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
       <geometry>
         <cylinder length="0.032" radius="0.041"/>
       </geometry>
-    </collision> -->
+    </collision>
   </link>
   <joint name="FR_thigh_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0 -0.08 0"/>
@@ -223,12 +223,12 @@
       </geometry>
       <!-- <material name="orange"/> -->
     </visual>
-    <!-- <collision>
+    <collision>
       <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
       <geometry>
         <cylinder length="0.04" radius="0.046"/>
       </geometry>
-    </collision> -->
+    </collision>
     <inertial>
       <origin rpy="0 0 0" xyz="-0.00541 -0.00074 6e-06"/>
       <mass value="0.591"/>
@@ -242,12 +242,12 @@
   </joint>
   <!-- this link is only for collision -->
   <link name="FL_thigh_shoulder">
-    <!-- <collision>
+    <collision>
       <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
       <geometry>
         <cylinder length="0.032" radius="0.041"/>
       </geometry>
-    </collision> -->
+    </collision>
   </link>
   <joint name="FL_thigh_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0 0.08 0"/>
@@ -345,12 +345,12 @@
       </geometry>
       <!-- <material name="orange"/> -->
     </visual>
-    <!-- <collision>
+    <collision>
       <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
       <geometry>
         <cylinder length="0.04" radius="0.046"/>
       </geometry>
-    </collision> -->
+    </collision>
     <inertial>
       <origin rpy="0 0 0" xyz="0.00541 0.00074 6e-06"/>
       <mass value="0.591"/>
@@ -364,12 +364,12 @@
   </joint>
   <!-- this link is only for collision -->
   <link name="RR_thigh_shoulder">
-    <!-- <collision>
+    <collision>
       <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
       <geometry>
         <cylinder length="0.032" radius="0.041"/>
       </geometry>
-    </collision> -->
+    </collision>
   </link>
   <joint name="RR_thigh_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0 -0.08 0"/>
@@ -467,12 +467,12 @@
       </geometry>
       <!-- <material name="orange"/> -->
     </visual>
-    <!-- <collision>
+    <collision>
       <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
       <geometry>
         <cylinder length="0.04" radius="0.046"/>
       </geometry>
-    </collision> -->
+    </collision>
     <inertial>
       <origin rpy="0 0 0" xyz="0.00541 -0.00074 6e-06"/>
       <mass value="0.591"/>
@@ -486,12 +486,12 @@
   </joint>
   <!-- this link is only for collision -->
   <link name="RL_thigh_shoulder">
-    <!-- <collision>
+    <collision>
       <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
       <geometry>
         <cylinder length="0.032" radius="0.041"/>
       </geometry>
-    </collision> -->
+    </collision>
   </link>
   <joint name="RL_thigh_joint" type="revolute">
     <origin rpy="0 0 0" xyz="0 0.08 0"/>
