@@ -32,6 +32,13 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 
 class Go1RoughCfg(LeggedRobotCfg):
+    class env(LeggedRobotCfg.env):
+        num_observations = 48
+
+    class terrain(LeggedRobotCfg.terrain):
+        mesh_type = 'plane'
+        measure_heights = False
+
     class init_state(LeggedRobotCfg.init_state):
         pos = [0.0, 0.0, 0.42]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
