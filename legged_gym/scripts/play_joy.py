@@ -17,6 +17,7 @@ class PlayJoy():
         self.joy_cmd_velx = 0.0
         self.joy_cmd_vely = 0.0
         self.joy_cmd_heading = 0.0
+        self.joy_cmd_ang_vel = 0.0
         self.joy_sub = rospy.Subscriber('/joy', Joy, self.joy_callback, queue_size=1)
 
         self.env_cfg, self.train_cfg = task_registry.get_cfgs(name=args.task)
@@ -30,8 +31,10 @@ class PlayJoy():
         self.env_cfg.domain_rand.push_robots = False
 
         # fixed velocity direction evaluation (make sure the value is within the training range)
+        self.env_cfg.commands.heading_command = False
         self.env_cfg.commands.ranges.lin_vel_x = [self.joy_cmd_velx, self.joy_cmd_velx]
         self.env_cfg.commands.ranges.lin_vel_y = [self.joy_cmd_vely, self.joy_cmd_vely]
+        self.env_cfg.commands.ranges.ang_vel_yaw = [self.joy_cmd_ang_vel, self.joy_cmd_ang_vel]
         self.env_cfg.commands.ranges.heading = [self.joy_cmd_heading, self.joy_cmd_heading]
 
 
@@ -49,7 +52,7 @@ class PlayJoy():
             obs, _, rews, dones, infos = env.step(actions.detach())
 
             # cmd's linear velocity changing module
-            env._change_cmds(self.joy_cmd_velx, self.joy_cmd_vely, self.joy_cmd_heading)
+            env._change_cmds(self.joy_cmd_velx, self.joy_cmd_vely, self.joy_cmd_ang_vel)
 
 
         rospy.spin()
@@ -58,7 +61,9 @@ class PlayJoy():
     def joy_callback(self, joy_msg):
         self.joy_cmd_velx = joy_msg.axes[4] * 1.0
         self.joy_cmd_vely = joy_msg.axes[3] * 1.0
-        self.joy_cmd_heading = joy_msg.axes[0] * 1.5
+        # self.joy_cmd_heading = joy_msg.axes[0] * 1.5
+        self.joy_cmd_ang_vel = joy_msg.axes[0] * 1.0
+
 
     def run(self):
         rospy.spin()

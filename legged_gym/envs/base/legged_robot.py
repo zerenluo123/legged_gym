@@ -906,8 +906,9 @@ class LeggedRobot(BaseTask):
         return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) -  self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)
 
 
-    def _change_cmds(self, vx, vy, heading):
+    def _change_cmds(self, vx, vy, vang):
         # change command_ranges with the input
         self.commands[:, 0] = vx
         self.commands[:, 1] = vy
-        self.commands[:, 3] = heading
+        self.commands[:, 2] = vang
+        # self.commands[:, 3] = heading
