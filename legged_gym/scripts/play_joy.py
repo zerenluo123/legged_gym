@@ -9,6 +9,8 @@ import numpy as np
 import torch
 import rospy
 from sensor_msgs.msg import Joy
+from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64
 
 class PlayJoy():
     def __init__(self, args):
@@ -22,9 +24,9 @@ class PlayJoy():
 
         self.env_cfg, self.train_cfg = task_registry.get_cfgs(name=args.task)
         # override some parameters for testing
-        self.env_cfg.env.num_envs = min(self.env_cfg.env.num_envs, 25)
-        self.env_cfg.terrain.num_rows = 5
-        self.env_cfg.terrain.num_cols = 5
+        self.env_cfg.env.num_envs = min(self.env_cfg.env.num_envs, 1)
+        self.env_cfg.terrain.num_rows = 1
+        self.env_cfg.terrain.num_cols = 1
         self.env_cfg.terrain.curriculum = False
         self.env_cfg.noise.add_noise = False
         self.env_cfg.domain_rand.randomize_friction = False
@@ -37,6 +39,52 @@ class PlayJoy():
         self.env_cfg.commands.ranges.ang_vel_yaw = [self.joy_cmd_ang_vel, self.joy_cmd_ang_vel]
         self.env_cfg.commands.ranges.heading = [self.joy_cmd_heading, self.joy_cmd_heading]
 
+        # init ros publisher
+        self.obs_pub = rospy.Publisher('/legged_gym/observation', Float64MultiArray, queue_size=10)
+        self.time_pub = rospy.Publisher('/legged_gym/time', Float64, queue_size=10)
+
+        self.lin_vel_x_pub = rospy.Publisher('/legged_gym/lin_vel_x', Float64, queue_size=10)
+        self.lin_vel_y_pub = rospy.Publisher('/legged_gym/lin_vel_y', Float64, queue_size=10)
+        self.lin_vel_z_pub = rospy.Publisher('/legged_gym/lin_vel_z', Float64, queue_size=10)
+
+        self.ang_vel_x_pub = rospy.Publisher('/legged_gym/ang_vel_x', Float64, queue_size=10)
+        self.ang_vel_y_pub = rospy.Publisher('/legged_gym/ang_vel_y', Float64, queue_size=10)
+        self.ang_vel_z_pub = rospy.Publisher('/legged_gym/ang_vel_z', Float64, queue_size=10)
+
+        self.gravity_x_pub = rospy.Publisher('/legged_gym/gravity_x', Float64, queue_size=10)
+        self.gravity_y_pub = rospy.Publisher('/legged_gym/gravity_y', Float64, queue_size=10)
+        self.gravity_z_pub = rospy.Publisher('/legged_gym/gravity_z', Float64, queue_size=10)
+
+        self.cmd_vel_x_pub = rospy.Publisher('/legged_gym/cmd_vel_x', Float64, queue_size=10)
+        self.cmd_vel_y_pub = rospy.Publisher('/legged_gym/cmd_vel_y', Float64, queue_size=10)
+        self.cmd_vel_z_pub = rospy.Publisher('/legged_gym/cmd_vel_z', Float64, queue_size=10)
+
+        self.FL_hip_pos_pub = rospy.Publisher('/legged_gym/FL_hip_pos', Float64, queue_size=10)
+        self.FL_thigh_pos_pub = rospy.Publisher('/legged_gym/FL_thigh_pos', Float64, queue_size=10)
+        self.FL_calf_pos_pub = rospy.Publisher('/legged_gym/FL_calf_pos', Float64, queue_size=10)
+        self.FR_hip_pos_pub = rospy.Publisher('/legged_gym/FR_hip_pos', Float64, queue_size=10)
+        self.FR_thigh_pos_pub = rospy.Publisher('/legged_gym/FR_thigh_pos', Float64, queue_size=10)
+        self.FR_calf_pos_pub = rospy.Publisher('/legged_gym/FR_calf_pos', Float64, queue_size=10)
+        self.RL_hip_pos_pub = rospy.Publisher('/legged_gym/RL_hip_pos', Float64, queue_size=10)
+        self.RL_thigh_pos_pub = rospy.Publisher('/legged_gym/RL_thigh_pos', Float64, queue_size=10)
+        self.RL_calf_pos_pub = rospy.Publisher('/legged_gym/RL_calf_pos', Float64, queue_size=10)
+        self.RR_hip_pos_pub = rospy.Publisher('/legged_gym/RR_hip_pos', Float64, queue_size=10)
+        self.RR_thigh_pos_pub = rospy.Publisher('/legged_gym/RR_thigh_pos', Float64, queue_size=10)
+        self.RR_calf_pos_pub = rospy.Publisher('/legged_gym/RR_calf_pos', Float64, queue_size=10)
+
+        self.FL_hip_vel_pub = rospy.Publisher('/legged_gym/FL_hip_vel', Float64, queue_size=10)
+        self.FL_thigh_vel_pub = rospy.Publisher('/legged_gym/FL_thigh_vel', Float64, queue_size=10)
+        self.FL_calf_vel_pub = rospy.Publisher('/legged_gym/FL_calf_vel', Float64, queue_size=10)
+        self.FR_hip_vel_pub = rospy.Publisher('/legged_gym/FR_hip_vel', Float64, queue_size=10)
+        self.FR_thigh_vel_pub = rospy.Publisher('/legged_gym/FR_thigh_vel', Float64, queue_size=10)
+        self.FR_calf_vel_pub = rospy.Publisher('/legged_gym/FR_calf_vel', Float64, queue_size=10)
+        self.RL_hip_vel_pub = rospy.Publisher('/legged_gym/RL_hip_vel', Float64, queue_size=10)
+        self.RL_thigh_vel_pub = rospy.Publisher('/legged_gym/RL_thigh_vel', Float64, queue_size=10)
+        self.RL_calf_vel_pub = rospy.Publisher('/legged_gym/RL_calf_vel', Float64, queue_size=10)
+        self.RR_hip_vel_pub = rospy.Publisher('/legged_gym/RR_hip_vel', Float64, queue_size=10)
+        self.RR_thigh_vel_pub = rospy.Publisher('/legged_gym/RR_thigh_vel', Float64, queue_size=10)
+        self.RR_calf_vel_pub = rospy.Publisher('/legged_gym/RR_calf_vel', Float64, queue_size=10)
+
 
     def play(self):
         # prepare environment
@@ -47,15 +95,75 @@ class PlayJoy():
         ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=self.args.task, args=self.args, train_cfg=self.train_cfg)
         policy = ppo_runner.get_inference_policy(device=env.device)
 
-        for i in range(10 * int(env.max_episode_length)):
+        while not rospy.is_shutdown():
+
             actions = policy(obs.detach())
             obs, _, rews, dones, infos = env.step(actions.detach())
 
             # cmd's linear velocity changing module
             env._change_cmds(self.joy_cmd_velx, self.joy_cmd_vely, self.joy_cmd_ang_vel)
 
+            # ************ for debug ************
+            obs_float = obs.cpu().numpy().squeeze().astype(np.float32)
+            # obs_msg = Float64MultiArray(data=obs_float)
+            # self.obs_pub.publish(obs_msg)
+            self.observatioon_pub(obs_float)
 
-        rospy.spin()
+            time_msg = Float64(data=rospy.get_time())
+            self.time_pub.publish(time_msg)
+
+            rospy.sleep(0.01)
+
+        # for i in range(10 * int(env.max_episode_length)):
+        #     actions = policy(obs.detach())
+        #     obs, _, rews, dones, infos = env.step(actions.detach())
+        #
+        #     # cmd's linear velocity changing module
+        #     env._change_cmds(self.joy_cmd_velx, self.joy_cmd_vely, self.joy_cmd_ang_vel)
+
+    def observatioon_pub(self, obs_float):
+        self.lin_vel_x_pub.publish(obs_float[0])
+        self.lin_vel_y_pub.publish(obs_float[1])
+        self.lin_vel_z_pub.publish(obs_float[2])
+
+        self.ang_vel_x_pub.publish(obs_float[3])
+        self.ang_vel_y_pub.publish(obs_float[4])
+        self.ang_vel_z_pub.publish(obs_float[5])
+
+        self.gravity_x_pub.publish(obs_float[6])
+        self.gravity_y_pub.publish(obs_float[7])
+        self.gravity_z_pub.publish(obs_float[8])
+
+        self.cmd_vel_x_pub.publish(obs_float[9])
+        self.cmd_vel_y_pub.publish(obs_float[10])
+        self.cmd_vel_z_pub.publish(obs_float[11])
+
+        self.FL_hip_pos_pub.publish(obs_float[12])
+        self.FL_thigh_pos_pub.publish(obs_float[13])
+        self.FL_calf_pos_pub.publish(obs_float[14])
+        self.FR_hip_pos_pub.publish(obs_float[15])
+        self.FR_thigh_pos_pub.publish(obs_float[16])
+        self.FR_calf_pos_pub.publish(obs_float[17])
+        self.RL_hip_pos_pub.publish(obs_float[18])
+        self.RL_thigh_pos_pub.publish(obs_float[19])
+        self.RL_calf_pos_pub.publish(obs_float[20])
+        self.RR_hip_pos_pub.publish(obs_float[21])
+        self.RR_thigh_pos_pub.publish(obs_float[22])
+        self.RR_calf_pos_pub.publish(obs_float[23])
+
+        self.FL_hip_vel_pub.publish(obs_float[24])
+        self.FL_thigh_vel_pub.publish(obs_float[25])
+        self.FL_calf_vel_pub.publish(obs_float[26])
+        self.FR_hip_vel_pub.publish(obs_float[27])
+        self.FR_thigh_vel_pub.publish(obs_float[28])
+        self.FR_calf_vel_pub.publish(obs_float[29])
+        self.RL_hip_vel_pub.publish(obs_float[30])
+        self.RL_thigh_vel_pub.publish(obs_float[31])
+        self.RL_calf_vel_pub.publish(obs_float[32])
+        self.RR_hip_vel_pub.publish(obs_float[33])
+        self.RR_thigh_vel_pub.publish(obs_float[34])
+        self.RR_calf_vel_pub.publish(obs_float[35])
+
 
 
     def joy_callback(self, joy_msg):
@@ -76,7 +184,6 @@ if __name__ == '__main__':
     args = get_args()
     play_joy = PlayJoy(args)
     play_joy.play()
-
     # play_joy.run()
 
 
