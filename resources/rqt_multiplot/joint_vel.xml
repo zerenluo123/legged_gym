@@ -181,7 +181,7 @@
                         <visible>true</visible>
                     </legend>
                     <plot_rate>30</plot_rate>
-                    <title>FL</title>
+                    <title>FL_vel</title>
                 </column_0>
                 <column_1>
                     <axes>
@@ -357,7 +357,7 @@
                         <visible>true</visible>
                     </legend>
                     <plot_rate>30</plot_rate>
-                    <title>FR</title>
+                    <title>FR_vel</title>
                 </column_1>
             </row_0>
             <row_1>
@@ -535,7 +535,7 @@
                         <visible>true</visible>
                     </legend>
                     <plot_rate>30</plot_rate>
-                    <title>RL</title>
+                    <title>RL_vel</title>
                 </column_0>
                 <column_1>
                     <axes>
@@ -711,7 +711,7 @@
                         <visible>true</visible>
                     </legend>
                     <plot_rate>30</plot_rate>
-                    <title>RR</title>
+                    <title>RR_vel</title>
                 </column_1>
             </row_1>
         </plots>
