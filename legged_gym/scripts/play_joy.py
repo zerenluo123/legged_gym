@@ -85,6 +85,19 @@ class PlayJoy():
         self.RR_thigh_vel_pub = rospy.Publisher('/legged_gym/RR_thigh_vel', Float64, queue_size=10)
         self.RR_calf_vel_pub = rospy.Publisher('/legged_gym/RR_calf_vel', Float64, queue_size=10)
 
+        self.FL_hip_act_pub = rospy.Publisher('/legged_gym/FL_hip_act', Float64, queue_size=10)
+        self.FL_thigh_act_pub = rospy.Publisher('/legged_gym/FL_thigh_act', Float64, queue_size=10)
+        self.FL_calf_act_pub = rospy.Publisher('/legged_gym/FL_calf_act', Float64, queue_size=10)
+        self.FR_hip_act_pub = rospy.Publisher('/legged_gym/FR_hip_act', Float64, queue_size=10)
+        self.FR_thigh_act_pub = rospy.Publisher('/legged_gym/FR_thigh_act', Float64, queue_size=10)
+        self.FR_calf_act_pub = rospy.Publisher('/legged_gym/FR_calf_act', Float64, queue_size=10)
+        self.RL_hip_act_pub = rospy.Publisher('/legged_gym/RL_hip_act', Float64, queue_size=10)
+        self.RL_thigh_act_pub = rospy.Publisher('/legged_gym/RL_thigh_act', Float64, queue_size=10)
+        self.RL_calf_act_pub = rospy.Publisher('/legged_gym/RL_calf_act', Float64, queue_size=10)
+        self.RR_hip_act_pub = rospy.Publisher('/legged_gym/RR_hip_act', Float64, queue_size=10)
+        self.RR_thigh_act_pub = rospy.Publisher('/legged_gym/RR_thigh_act', Float64, queue_size=10)
+        self.RR_calf_act_pub = rospy.Publisher('/legged_gym/RR_calf_act', Float64, queue_size=10)
+
 
     def play(self):
         # prepare environment
@@ -163,6 +176,19 @@ class PlayJoy():
         self.RR_hip_vel_pub.publish(obs_float[33])
         self.RR_thigh_vel_pub.publish(obs_float[34])
         self.RR_calf_vel_pub.publish(obs_float[35])
+
+        self.FL_hip_act_pub.publish(obs_float[36])
+        self.FL_thigh_act_pub.publish(obs_float[37])
+        self.FL_calf_act_pub.publish(obs_float[38])
+        self.FR_hip_act_pub.publish(obs_float[39])
+        self.FR_thigh_act_pub.publish(obs_float[40])
+        self.FR_calf_act_pub.publish(obs_float[41])
+        self.RL_hip_act_pub.publish(obs_float[42])
+        self.RL_thigh_act_pub.publish(obs_float[43])
+        self.RL_calf_act_pub.publish(obs_float[44])
+        self.RR_hip_act_pub.publish(obs_float[45])
+        self.RR_thigh_act_pub.publish(obs_float[46])
+        self.RR_calf_act_pub.publish(obs_float[47])
 
 
 
