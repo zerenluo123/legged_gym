@@ -81,7 +81,7 @@ class Go1RoughCfg(LeggedRobotCfg):
         base_height_target = 0.25
 
         class scales(LeggedRobotCfg.rewards.scales):
-            torques = -0.0002
+            torques = -0.00025
             dof_pos_limits = -10.0
 
 
