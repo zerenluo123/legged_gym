@@ -149,7 +149,11 @@ class TaskRegistry():
             # save cfg file in the checkpoint dir
             os.makedirs(log_dir)
             save_item = os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'envs', 'base', 'legged_robot_config.py')
-            copyfile(save_item, log_dir + '/train_cfg.py')
+            copyfile(save_item, log_dir + '/train_cfg_general.py')
+
+            save_item = os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'envs', 'go1', 'go1_config.py')
+            copyfile(save_item, log_dir + '/train_cfg_go1.py')
+
 
 
         train_cfg_dict = class_to_dict(train_cfg)

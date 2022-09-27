@@ -130,12 +130,12 @@ class LeggedRobotCfg(BaseConfig):
     class rewards:
         class scales:
             termination = -0.0
-            tracking_lin_vel = 1.16
-            tracking_ang_vel = 0.58
+            tracking_lin_vel = 1.2
+            tracking_ang_vel = 0.6
             lin_vel_z = -2.0
-            # ang_vel_xy = -0.05
-            ang_vel_x = -0.2
-            ang_vel_y = -0.05
+            ang_vel_xy = -0.05
+            # ang_vel_x = -0.2
+            # ang_vel_y = -0.05
             orientation = -0.
             torques = -0.00001
             dof_vel = -0.
