@@ -40,7 +40,7 @@ class Go1RoughCfg(LeggedRobotCfg):
         measure_heights = False
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.42]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.32]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             'FL_hip_joint': 0.1,  # [rad]
             'RL_hip_joint': 0.1,  # [rad]
@@ -61,8 +61,8 @@ class Go1RoughCfg(LeggedRobotCfg):
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
         control_type = 'P'
-        stiffness = {'joint': 20.}  # [N*m/rad]
-        damping = {'joint': 0.5}  # [N*m*s/rad]
+        stiffness = {'joint': 50.}  # [N*m/rad]
+        damping = {'joint': 4.0}  # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
@@ -83,9 +83,10 @@ class Go1RoughCfg(LeggedRobotCfg):
         base_height_target = 0.25
 
         class scales(LeggedRobotCfg.rewards.scales):
-            orientation = -6.0
-            torques = -0.00025
-            dof_pos_limits = -10.0
+            # orientation = -5.0
+            feet_air_time = 2.
+        #     torques = -0.00025
+        #     dof_pos_limits = -10.0
 
 
 class Go1RoughCfgPPO(LeggedRobotCfgPPO):
