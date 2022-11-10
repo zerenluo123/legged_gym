@@ -130,22 +130,21 @@ class LeggedRobotCfg(BaseConfig):
     class rewards:
         class scales:
             termination = -0.0
-            tracking_lin_vel = 1.2
-            tracking_ang_vel = 0.6
+            tracking_lin_vel = 1.0
+            tracking_ang_vel = 0.5
             lin_vel_z = -2.0
-            ang_vel_xy = -0.05
-            # ang_vel_x = -0.2
-            # ang_vel_y = -0.05
-            orientation = -0.
-            torques = -0.00001
-            dof_vel = -0.
-            dof_acc = -2.5e-7
-            base_height = -0. 
-            feet_air_time =  1.0
-            collision = -1.
-            feet_stumble = -0.0 
+            # ang_vel_xy = -0.05
+            # orientation = -0.
+            # torques = -0.00001
+            # dof_vel = -0.
+            # dof_acc = -2.5e-7
+            # base_height = -0.
+            # feet_air_time =  1.0
+            # collision = -1.
+            # feet_stumble = -0.0
             action_rate = -0.01
-            stand_still = -0.
+            # stand_still = -0.
+            energy = -0.00005
 
         only_positive_rewards = True # if true negative total rewards are clipped at zero (avoids early termination problems)
         tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
@@ -222,7 +221,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         entropy_coef = 0.01
         num_learning_epochs = 5
         num_mini_batches = 4 # mini batch size = num_envs*nsteps / nminibatches
-        learning_rate = 3.e-4 #5.e-4
+        learning_rate = 6.e-4 #5.e-4
         schedule = 'adaptive' # could be adaptive, fixed
         gamma = 0.99
         lam = 0.95
@@ -233,7 +232,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 24 # per iteration
-        max_iterations = 1500 # number of policy updates
+        max_iterations = 800 # number of policy updates
 
         # logging
         save_interval = 50 # check for potential saves every this many iterations
@@ -241,6 +240,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = -1 # -1 = last run
+        load_run = 'Nov10_09-07-30_' # -1 = last run
         checkpoint = -1 # -1 = last saved model
         resume_path = None # updated from load_run and chkpt

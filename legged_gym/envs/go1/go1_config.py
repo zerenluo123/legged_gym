@@ -62,7 +62,7 @@ class Go1RoughCfg(LeggedRobotCfg):
         # PD Drive parameters:
         control_type = 'P'
         stiffness = {'joint': 50.}  # [N*m/rad]
-        damping = {'joint': 4.0}  # [N*m*s/rad]
+        damping = {'joint': 2.0}  # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
@@ -84,9 +84,15 @@ class Go1RoughCfg(LeggedRobotCfg):
 
         class scales(LeggedRobotCfg.rewards.scales):
             # orientation = -5.0
-            feet_air_time = 2.
-        #     torques = -0.00025
+            # feet_air_time = 2.
+            # torques = -0.00025
         #     dof_pos_limits = -10.0
+            action_rate = -0.02
+            energy = -0.00005
+
+    # class normalization(LeggedRobotCfg.normalization):
+    #     clip_observations = 100.0
+    #     clip_actions = 10.0
 
 
 class Go1RoughCfgPPO(LeggedRobotCfgPPO):

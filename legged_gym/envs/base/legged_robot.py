@@ -848,17 +848,6 @@ class LeggedRobot(BaseTask):
         # Penalize xy axes base angular velocity
         return torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=1)
 
-    # *************** seperate x and y, x is the most unstablized ***************
-    def _reward_ang_vel_x(self):
-        # Penalize x axes base angular velocity
-        return torch.square(self.base_ang_vel[:, 0])
-
-    def _reward_ang_vel_y(self):
-        # Penalize y axes base angular velocity
-        return torch.square(self.base_ang_vel[:, 1])
-    # *************** seperate x and y, x is the most unstablized ***************
-
-
     def _reward_orientation(self):
         # Penalize non flat base orientation
         return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1)
@@ -872,6 +861,11 @@ class LeggedRobot(BaseTask):
         # Penalize torques
         return torch.sum(torch.square(self.torques), dim=1)
 
+    # ***************** energy disspation ***************
+    def _reward_energy(self):
+        # Penalize energy
+        return torch.sum(torch.square(self.torques * self.dof_vel), dim=1)
+
     def _reward_dof_vel(self):
         # Penalize dof velocities
         return torch.sum(torch.square(self.dof_vel), dim=1)
@@ -883,6 +877,9 @@ class LeggedRobot(BaseTask):
     def _reward_action_rate(self):
         # Penalize changes in actions
         return torch.sum(torch.square(self.last_actions - self.actions), dim=1)
+
+    # ***************** torque rate ***************
+
 
     def _reward_collision(self):
         # Penalize collisions on selected bodies
