@@ -61,8 +61,8 @@ class Go1RoughCfg(LeggedRobotCfg):
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
         control_type = 'P'
-        stiffness = {'joint': 50.}  # [N*m/rad]
-        damping = {'joint': 2.0}  # [N*m*s/rad]
+        stiffness = {'hip_joint': 20, 'thigh_joint': 50., 'calf_joint': 50. }  # [N*m/rad]
+        damping = {'hip_joint': 1., 'thigh_joint': 2., 'calf_joint': 2. }  # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
@@ -84,11 +84,11 @@ class Go1RoughCfg(LeggedRobotCfg):
 
         class scales(LeggedRobotCfg.rewards.scales):
             # orientation = -5.0
-            # feet_air_time = 2.
+            feet_air_time = 1.0
             # torques = -0.00025
         #     dof_pos_limits = -10.0
             action_rate = -0.02
-            energy = -0.00005
+            energy = -0.00008
 
     # class normalization(LeggedRobotCfg.normalization):
     #     clip_observations = 100.0
@@ -102,4 +102,3 @@ class Go1RoughCfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ''
         experiment_name = 'rough_go1'
-

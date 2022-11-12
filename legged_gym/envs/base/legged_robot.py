@@ -381,8 +381,11 @@ class LeggedRobot(BaseTask):
 
     def _compute_poses(self, actions):
         actions_scaled = actions * self.cfg.control.action_scale  # wo - current pos is better than w - current pos
-        target_poses = actions_scaled * self.actions + self.default_dof_pos
-        return target_poses
+        target_poses = actions_scaled + self.default_dof_pos
+        print("lower: ", self.dof_pos_limits[:, 0])
+        print("upper: ", self.dof_pos_limits[:, 1])
+
+        return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1])
 
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
@@ -522,8 +525,6 @@ class LeggedRobot(BaseTask):
         # self.torques = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
         self.target_poses = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
         self.torques = gymtorch.wrap_tensor(torques).view(self.num_envs, self.num_actions)
-        print("******* torque ", self.torques)
-
 
         self.p_gains = torch.zeros(self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
         self.d_gains = torch.zeros(self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
@@ -666,11 +667,6 @@ class LeggedRobot(BaseTask):
         dof_props_asset = self.gym.get_asset_dof_properties(robot_asset)
         rigid_shape_props_asset = self.gym.get_asset_rigid_shape_properties(robot_asset)
 
-        for i in range(self.num_dof):
-            dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
-            dof_props_asset['stiffness'][i] = self.cfg.control.stiffness['joint'] #self.Kp
-            dof_props_asset['damping'][i] = self.cfg.control.damping['joint'] #self.Kd
-
         # save body names from the asset
         body_names = self.gym.get_asset_rigid_body_names(robot_asset)
         self.dof_names = self.gym.get_asset_dof_names(robot_asset)
@@ -683,6 +679,15 @@ class LeggedRobot(BaseTask):
         termination_contact_names = []
         for name in self.cfg.asset.terminate_after_contacts_on:
             termination_contact_names.extend([s for s in body_names if name in s])
+
+        # ! set gym's PD controller
+        for i in range(self.num_dof):
+            name = self.dof_names[i]
+            for dof_name in self.cfg.control.stiffness.keys():
+                if dof_name in name:
+                    dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
+                    dof_props_asset['stiffness'][i] = self.cfg.control.stiffness[dof_name] #self.Kp
+                    dof_props_asset['damping'][i] = self.cfg.control.damping[dof_name] #self.Kd
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)
@@ -878,9 +883,6 @@ class LeggedRobot(BaseTask):
         # Penalize changes in actions
         return torch.sum(torch.square(self.last_actions - self.actions), dim=1)
 
-    # ***************** torque rate ***************
-
-
     def _reward_collision(self):
         # Penalize collisions on selected bodies
         return torch.sum(1.*(torch.norm(self.contact_forces[:, self.penalised_contact_indices, :], dim=-1) > 0.1), dim=1)
@@ -914,17 +916,27 @@ class LeggedRobot(BaseTask):
         ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
         return torch.exp(-ang_vel_error/self.cfg.rewards.tracking_sigma)
 
+    # def _reward_feet_air_time(self):
+    #     # Reward long steps
+    #     # Need to filter the contacts because the contact reporting of PhysX is unreliable on meshes
+    #     contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+    #     contact_filt = torch.logical_or(contact, self.last_contacts)
+    #     self.last_contacts = contact
+    #     first_contact = (self.feet_air_time > 0.) * contact_filt
+    #     self.feet_air_time += self.dt
+    #     rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
+    #     rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
+    #     self.feet_air_time *= ~contact_filt
+    #     return rew_airTime
+
     def _reward_feet_air_time(self):
         # Reward long steps
-        # Need to filter the contacts because the contact reporting of PhysX is unreliable on meshes
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
-        contact_filt = torch.logical_or(contact, self.last_contacts)
-        self.last_contacts = contact
-        first_contact = (self.feet_air_time > 0.) * contact_filt
+        first_contact = (self.feet_air_time > 0.) * contact
         self.feet_air_time += self.dt
         rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
-        self.feet_air_time *= ~contact_filt
+        self.feet_air_time *= ~contact
         return rew_airTime
 
     def _reward_stumble(self):
@@ -939,6 +951,11 @@ class LeggedRobot(BaseTask):
     def _reward_feet_contact_forces(self):
         # penalize high contact forces
         return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) -  self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)
+
+    def _reward_hip_motion(self):
+        # cosmetic penalty for hip motion
+        return torch.sum(torch.abs(self.dof_pos[:, [0, 3, 6, 9]] - self.default_dof_pos[:, [0, 3, 6, 9]]), dim=1)
+
 
 
     def _change_cmds(self, vx, vy, vang):
