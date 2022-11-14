@@ -248,6 +248,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = 'Nov12_09-05-02_'  # -1 = last run
+        load_run = 'Nov14_11-06-21_'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt

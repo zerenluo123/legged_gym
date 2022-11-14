@@ -65,16 +65,15 @@ class Go1(LeggedRobot):
         self.pos_err_buffs = np.zeros((self.num_envs, self.num_actions, LEN_HIST))
         self.vel_buffs = np.zeros((self.num_envs, self.num_actions, LEN_HIST))
 
-    def _compute_torques(self, actions):
+    def _compute_poses(self, actions):
         # Choose between pd controller and actuator network
         if self.cfg.control.use_actuator_network:
             dVel = self.actuator_advance(actions)
 
-            return super()._compute_torques(actions)
-
+            return super()._compute_poses(actions)
         else:
             # pd controller
-            return super()._compute_torques(actions)
+            return super()._compute_poses(actions)
 
     # TODO: actuator model buffer and forward
     def actuator_advance(self, actions):

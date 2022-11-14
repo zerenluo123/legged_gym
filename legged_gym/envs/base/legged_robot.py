@@ -382,9 +382,6 @@ class LeggedRobot(BaseTask):
     def _compute_poses(self, actions):
         actions_scaled = actions * self.cfg.control.action_scale  # wo - current pos is better than w - current pos
         target_poses = actions_scaled + self.default_dof_pos
-        print("lower: ", self.dof_pos_limits[:, 0])
-        print("upper: ", self.dof_pos_limits[:, 1])
-
         return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1])
 
     def _reset_dofs(self, env_ids):

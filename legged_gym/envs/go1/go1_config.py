@@ -61,8 +61,8 @@ class Go1RoughCfg(LeggedRobotCfg):
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
         control_type = 'P'
-        stiffness = {'hip_joint': 20, 'thigh_joint': 50., 'calf_joint': 50. }  # [N*m/rad]
-        damping = {'hip_joint': 1., 'thigh_joint': 2., 'calf_joint': 2. }  # [N*m*s/rad]
+        stiffness = {'hip_joint': 30, 'thigh_joint': 50., 'calf_joint': 50. }  # [N*m/rad]
+        damping = {'hip_joint': 2., 'thigh_joint': 2., 'calf_joint': 2. }  # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
