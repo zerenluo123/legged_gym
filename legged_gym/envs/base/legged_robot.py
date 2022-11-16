@@ -87,12 +87,19 @@ class LeggedRobot(BaseTask):
         # step physics and render each frame
         self.render()
         for _ in range(self.cfg.control.decimation):
+            # # ! Note: torque control
             # self.torques = self._compute_torques(self.actions).view(self.torques.shape)
             # self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
 
-            # Note: Position control
-            self.target_poses = self._compute_poses(self.actions).view(self.target_poses.shape)
-            self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self.target_poses))
+            # # ! Note: Position PD control
+            # self.target_poses = self._compute_poses(self.actions).view(self.target_poses.shape)
+            # self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self.target_poses))
+
+            # ! Note: Position control
+            # self.dof_pos, self.dof_vel = self._actuator_advance(self.actions)
+            self.dof_state[..., 0] = self.actions
+            self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.dof_state))
+
             self.gym.simulate(self.sim)
             if self.device == 'cpu':
                 self.gym.fetch_results(self.sim, True)
@@ -384,6 +391,13 @@ class LeggedRobot(BaseTask):
         target_poses = actions_scaled + self.default_dof_pos
         return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1])
 
+    def _actuator_advance(self, actions):
+        print("************* base type of actuator advance *************")
+        actions_scaled = actions * self.cfg.control.action_scale  # wo - current pos is better than w - current pos
+        target_poses = actions_scaled + self.default_dof_pos
+        return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1]).view(self.target_poses.shape), \
+               torch.ones(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
         Positions are randomly selected within 0.5:1.5 x default positions.
@@ -426,6 +440,11 @@ class LeggedRobot(BaseTask):
         """
         max_vel = self.cfg.domain_rand.max_push_vel_xy
         self.root_states[:, 7:9] = torch_rand_float(-max_vel, max_vel, (self.num_envs, 2), device=self.device) # lin vel x/y
+        self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
+
+    def _set_body_pose_to_actors_fixed_at_origin(self, fixed_pose):
+        self.root_states[:, :7] = fixed_pose
+        self.root_states[:, 7:13] = torch.zeros(self.num_envs, 6, device=self.device)
         self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
 
     def _update_terrain_curriculum(self, env_ids):
@@ -677,14 +696,14 @@ class LeggedRobot(BaseTask):
         for name in self.cfg.asset.terminate_after_contacts_on:
             termination_contact_names.extend([s for s in body_names if name in s])
 
-        # ! set gym's PD controller
-        for i in range(self.num_dof):
-            name = self.dof_names[i]
-            for dof_name in self.cfg.control.stiffness.keys():
-                if dof_name in name:
-                    dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
-                    dof_props_asset['stiffness'][i] = self.cfg.control.stiffness[dof_name] #self.Kp
-                    dof_props_asset['damping'][i] = self.cfg.control.damping[dof_name] #self.Kd
+        # # ! set gym's PD controller
+        # for i in range(self.num_dof):
+        #     name = self.dof_names[i]
+        #     for dof_name in self.cfg.control.stiffness.keys():
+        #         if dof_name in name:
+        #             dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
+        #             dof_props_asset['stiffness'][i] = self.cfg.control.stiffness[dof_name] #self.Kp
+        #             dof_props_asset['damping'][i] = self.cfg.control.damping[dof_name] #self.Kd
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)

@@ -29,7 +29,7 @@ def play(args):
     logger = Logger(env.dt)
     robot_index = 0  # which robot is used for logging
     joint_index = 1  # which joint is used for logging
-    stop_state_log = 500  # number of steps before plotting states
+    stop_state_log = 300  # number of steps before plotting states
     stop_rew_log = env.max_episode_length + 1  # number of steps before print average episode rewards
 
     for i in range(10 * int(env.max_episode_length)):
@@ -43,8 +43,10 @@ def play(args):
         if i < stop_state_log:
             logger.log_states(
                 {
-                    'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
+                    # 'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale + env.default_dof_pos[0, joint_index].item(),
+                    # 'dof_pos_target': env.target_poses[robot_index, joint_index].item(),
                     'dof_pos': env.dof_pos[robot_index, joint_index].item(),
+                    # 'act_pos': env.act_pos[robot_index, joint_index].item(),
                     'dof_vel': env.dof_vel[robot_index, joint_index].item(),
                     'dof_torque': env.torques[robot_index, joint_index].item(),
                 }
