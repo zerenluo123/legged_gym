@@ -78,13 +78,17 @@ class Go1RoughCfg(LeggedRobotCfg):
         terminate_after_contacts_on = ["base"]
         self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
 
+    class domain_rand(LeggedRobotCfg.domain_rand):
+        randomize_base_mass = True
+        added_mass_range = [-1., 1.]
+
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.25
 
         class scales(LeggedRobotCfg.rewards.scales):
             # orientation = -5.0
-            feet_air_time = 1.0
+            feet_air_time = 0.5
             # torques = -0.00025
         #     dof_pos_limits = -10.0
             action_rate = -0.02
