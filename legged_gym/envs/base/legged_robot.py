@@ -96,8 +96,10 @@ class LeggedRobot(BaseTask):
             # self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self.target_poses))
 
             # ! Note: Position control
-            # self.dof_pos, self.dof_vel = self._actuator_advance(self.actions)
-            self.dof_state[..., 0] = self.actions
+            self.dof_pos, self.dof_vel = self._actuator_advance(self.actions)
+            self.dof_state[..., 0] = self.dof_pos
+            self.dof_state[..., 1] = self.dof_vel
+            # self.dof_state[..., 0] = self.actions
             self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.dof_state))
 
             self.gym.simulate(self.sim)
@@ -392,9 +394,10 @@ class LeggedRobot(BaseTask):
         return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1])
 
     def _actuator_advance(self, actions):
-        print("************* base type of actuator advance *************")
-        actions_scaled = actions * self.cfg.control.action_scale  # wo - current pos is better than w - current pos
-        target_poses = actions_scaled + self.default_dof_pos
+        # print("************* base type of actuator advance *************")
+        # actions_scaled = actions * self.cfg.control.action_scale  # wo - current pos is better than w - current pos
+        # target_poses = actions_scaled + self.default_dof_pos
+        target_poses = actions
         return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1]).view(self.target_poses.shape), \
                torch.ones(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
 
@@ -444,7 +447,7 @@ class LeggedRobot(BaseTask):
 
     def _set_body_pose_to_actors_fixed_at_origin(self, fixed_pose):
         self.root_states[:, :7] = fixed_pose
-        self.root_states[:, 7:13] = torch.zeros(self.num_envs, 6, device=self.device)
+        self.root_states[:, 7:10] = torch.zeros(self.num_envs, 3, device=self.device)
         self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
 
     def _update_terrain_curriculum(self, env_ids):

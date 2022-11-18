@@ -59,7 +59,8 @@ class Logger:
         self.rew_log.clear()
 
     def plot_states(self):
-        self.plot_process = Process(target=self._plot)
+        # self.plot_process = Process(target=self._plot)
+        self.plot_process = Process(target=self._plot_dof)
         self.plot_process.start()
 
     def _plot(self):
@@ -74,7 +75,7 @@ class Logger:
         a = axs[1, 0]
         if log["dof_pos"]: a.plot(time, log["dof_pos"], label='measured')
         if log["dof_pos_target"]: a.plot(time, log["dof_pos_target"], label='target')
-        if log["act_pos"]: a.plot(time, log["act_pos"], label='actNN')
+        if log["real_pos"]: a.plot(time, log["real_pos"], label='real')
         a.set(xlabel='time [s]', ylabel='Position [rad]', title='DOF Position')
         a.legend()
         # plot joint velocity
@@ -123,6 +124,30 @@ class Logger:
         a = axs[2, 2]
         if log["dof_torque"]!=[]: a.plot(time, log["dof_torque"], label='measured')
         a.set(xlabel='time [s]', ylabel='Joint Torque [Nm]', title='Torque')
+        a.legend()
+        plt.show()
+
+    def _plot_dof(self):
+        init_count = 40
+        nb_rows = 2
+        nb_cols = 1
+        fig, axs = plt.subplots(nb_rows, nb_cols)
+        for key, value in self.state_log.items():
+            time = np.linspace(0, len(value) * self.dt, len(value))
+            time_s = np.linspace(0, len(value) * self.dt, len(value)-init_count)
+            break
+        log = self.state_log
+        # plot joint targets and measured positions
+        a = axs[0]
+        if log["dof_pos"]: a.plot(time_s, log["dof_pos"][init_count:], label='measured')
+        if log["real_pos"]: a.plot(time, log["real_pos"], label='real')
+        a.set(xlabel='time [s]', ylabel='Position [rad]', title='DOF Position')
+        a.legend()
+        # plot joint velocity
+        a = axs[1]
+        if log["dof_vel"]: a.plot(time_s, log["dof_vel"][init_count:], label='measured')
+        if log["real_vel"]: a.plot(time, log["real_vel"], label='real')
+        a.set(xlabel='time [s]', ylabel='Velocity [rad/s]', title='Joint Velocity')
         a.legend()
         plt.show()
 

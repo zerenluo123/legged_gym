@@ -56,12 +56,16 @@ class Go1(LeggedRobot):
 
 
 
-    def reset_idx(self, env_ids):
+    def reset_idx(self, env_ids): # the only way to get pos and vel from env. other state rolls forward internally
         super().reset_idx(env_ids)
+
+        self.act_pos[env_ids] = self.dof_pos[env_ids]
+        self.act_vel[env_ids] = self.dof_vel[env_ids]
+
         # Additionaly fill actuator network history buffer states
-        pos_err = - self.dof_pos[env_ids]                               # self.dof_pos[env_ids] ~ (12, )
+        pos_err = - self.act_pos[env_ids]                               # self.act_pos[env_ids] ~ (12, )
         pos_err_s = (pos_err - self.pos_err_mean) / self.pos_err_std
-        vel_s = (self.dof_vel[env_ids] - self.vel_mean) / self.vel_std  # self.dof_vel[env_ids] ~ (12, )
+        vel_s = (self.act_vel[env_ids] - self.vel_mean) / self.vel_std  # self.act_vel[env_ids] ~ (12, )
 
         for i in range(LEN_HIST):
             self.pos_err_buffs[env_ids, :, i] = pos_err_s
@@ -78,6 +82,9 @@ class Go1(LeggedRobot):
         self.pos_err_buffs = torch.zeros(self.num_envs, self.num_actions, LEN_HIST, device=self.device, requires_grad=False)
         self.vel_buffs = torch.zeros(self.num_envs, self.num_actions, LEN_HIST, device=self.device, requires_grad=False)
 
+        self.act_pos = torch.zeros(self.num_envs, self.num_dof, device=self.device, requires_grad=False)
+        self.act_vel = torch.zeros(self.num_envs, self.num_dof, device=self.device, requires_grad=False)
+
     def _compute_poses(self, actions):
         # Choose between pd controller and actuator network
         if self.cfg.control.use_actuator_network:
@@ -89,110 +96,62 @@ class Go1(LeggedRobot):
             # pd controller
             return super()._compute_poses(actions)
 
+    # # TODO: actuator model buffer and forward
+    # def _actuator_advance(self, actions):
+    #
+    #     if self.cfg.control.use_actuator_network:
+    #         vel = 0.2*actions
+    #         pos = self.dof_pos + self.sim_params.dt * vel
+    #
+    #         return torch.clip(pos, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1]).view(self.dof_pos.shape), \
+    #                vel.view(self.dof_vel.shape)
+    #
+    #     else:
+    #         return super()._actuator_advance(actions)
+
     # TODO: actuator model buffer and forward
     def _actuator_advance(self, actions):
 
         if self.cfg.control.use_actuator_network:
-            vel = 0.2*actions
-            pos = self.dof_pos + self.sim_params.dt * vel
 
-            return torch.clip(pos, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1]).view(self.dof_pos.shape), \
-                   vel.view(self.dof_vel.shape)
+            # scale pos_err and vel TODO: clip
+            pos_err = actions - self.dof_pos
+            pos_err_s = (pos_err - self.pos_err_mean) / self.pos_err_std
+            vel_s = (self.dof_vel - self.vel_mean) / self.vel_std
+
+            # TODO: note that the pos_err is of 12-dim, but real model_in is od=f 3-dim
+            model_in = np.array([])
+            for i in range(self.num_actions):
+                # fill buffers with scaled data [t-h, ... , t-0]
+                # hist can be different for each joint
+                pos_err_temp = self.pos_err_buffs[:, i, :][:, 1:]  # delete the first column
+                self.pos_err_buffs[:, i, :] = torch.cat( (pos_err_temp, pos_err_s[:, i].unsqueeze(-1)), dim=1 )
+
+                vel_temp = self.vel_buffs[:, i, :][:, 1:]
+                self.vel_buffs[:, i, :] = torch.cat( (vel_temp, vel_s[:, i].unsqueeze(-1)), dim=1 )
+
+                # fill actuator model input vector
+                self.model_ins[:, 2 * i * LEN_HIST:(2 * i + 1) * LEN_HIST] = self.pos_err_buffs[:, i, :]
+                self.model_ins[:, (2 * i + 1) * LEN_HIST:(2 * i + 2) * LEN_HIST] = self.vel_buffs[:, i, :]
+
+            with torch.inference_mode():
+                # advance actuator mlp
+                dVel = self.actuator_network(self.model_ins)
+
+                # upscale mlp output
+                dVel *= self.dVel_std
+                dVel += self.dVel_mean
+
+            target_vels = self.dof_vel + dVel
+            target_poses = self.dof_pos + self.sim_params.dt * target_vels
+
+            # print("**********************")
+            # print(target_poses)
+
+            return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1]).view(self.dof_pos.shape), \
+                   target_vels.view(self.dof_vel.shape)
+
+            # return super()._actuator_advance(actions)
 
         else:
             return super()._actuator_advance(actions)
-
-    # # TODO: actuator model buffer and forward
-    # def _actuator_advance(self, actions):
-    #
-    #     if self.cfg.control.use_actuator_network:
-    #
-    #         # scale pos_err and vel TODO: clip
-    #         pos_err = actions - self.dof_pos
-    #         pos_err_s = (pos_err - self.pos_err_mean) / self.pos_err_std
-    #         vel_s = (self.dof_vel - self.vel_mean) / self.vel_std
-    #
-    #         # TODO: note that the pos_err is of 12-dim, but real model_in is od=f 3-dim
-    #         model_in = np.array([])
-    #         for i in range(self.num_actions):
-    #             # fill buffers with scaled data [t-h, ... , t-0]
-    #             # hist can be different for each joint
-    #             pos_err_temp = self.pos_err_buffs[:, i, :][:, 1:]  # delete the first column
-    #             self.pos_err_buffs[:, i, :] = torch.cat( (pos_err_temp, pos_err_s[:, i].unsqueeze(-1)), dim=1 )
-    #
-    #             vel_temp = self.vel_buffs[:, i, :][:, 1:]
-    #             self.vel_buffs[:, i, :] = torch.cat( (vel_temp, vel_s[:, i].unsqueeze(-1)), dim=1 )
-    #
-    #             # fill actuator model input vector
-    #             self.model_ins[:, 2 * i * LEN_HIST:(2 * i + 1) * LEN_HIST] = self.pos_err_buffs[:, i, :]
-    #             self.model_ins[:, (2 * i + 1) * LEN_HIST:(2 * i + 2) * LEN_HIST] = self.vel_buffs[:, i, :]
-    #
-    #         with torch.inference_mode():
-    #             # advance actuator mlp
-    #             dVel = self.actuator_network(self.model_ins)
-    #
-    #             # upscale mlp output
-    #             dVel *= self.dVel_std
-    #             dVel += self.dVel_mean
-    #
-    #         target_vels = self.dof_vel + dVel
-    #         target_poses = self.dof_pos + self.sim_params.dt * target_vels
-    #
-    #         # print("**********************")
-    #         # print(target_poses)
-    #
-    #         return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1]).view(self.dof_pos.shape), \
-    #                target_vels.view(self.dof_vel.shape)
-    #
-    #     else:
-    #         return super()._actuator_advance(actions)
-
-
-    # # TODO: actuator model buffer and forward
-    # def _actuator_advance(self, actions):
-    #
-    #     if self.cfg.control.use_actuator_network:
-    #
-    #         # scale pos_err and vel TODO: clip
-    #         pos_err = actions - self.dof_pos
-    #         pos_err_s = (pos_err - self.pos_err_mean) / self.pos_err_std
-    #         vel_s = (self.dof_vel - self.vel_mean) / self.vel_std
-    #
-    #         # TODO: note that the pos_err is of 12-dim, but real model_in is od=f 3-dim
-    #         model_in = np.array([])
-    #         for i in range(self.num_actions):
-    #             # fill buffers with scaled data [t-h, ... , t-0]
-    #             # hist can be different for each joint
-    #             pos_err_temp = np.delete(self.pos_err_buffs[:, i, :], 0, axis=1)  # need to be numpy,
-    #             self.pos_err_buffs[:, i, :] = np.append(pos_err_temp, pos_err_s[:, i].unsqueeze(-1).cpu().numpy(), axis=1)
-    #
-    #             vel_temp = np.delete(self.vel_buffs[:, i, :], 0, axis=1)
-    #             self.vel_buffs[:, i, :] = np.append(vel_temp, vel_s[:, i].unsqueeze(-1).cpu().numpy(), axis=1)
-    #
-    #             # fill actuator model input vector
-    #             self.model_ins[:, 2 * i * LEN_HIST:(2 * i + 1) * LEN_HIST] = torch.from_numpy(self.pos_err_buffs[:, i, :])
-    #             self.model_ins[:, (2 * i + 1) * LEN_HIST:(2 * i + 2) * LEN_HIST] = torch.from_numpy(self.vel_buffs[:, i, :])
-    #
-    #         with torch.inference_mode():
-    #             # advance actuator mlp
-    #             dVel = self.actuator_network(self.model_ins)
-    #
-    #             # upscale mlp output
-    #             dVel *= self.dVel_std
-    #             dVel += self.dVel_mean
-    #
-    #         target_vels = self.dof_vel + dVel
-    #         target_poses = self.dof_pos + self.sim_params.dt * target_vels
-    #
-    #         return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1]).view(self.dof_pos.shape), \
-    #                target_vels.view(self.dof_vel.shape)
-    #
-    #     else:
-    #         return super()._actuator_advance(actions)
-
-
-
-
-
-
-
