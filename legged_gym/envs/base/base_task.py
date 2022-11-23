@@ -58,7 +58,8 @@ class BaseTask():
             self.graphics_device_id = -1
 
         self.num_envs = cfg.env.num_envs
-        self.num_obs = cfg.env.num_observations
+        self.num_obs = cfg.env.num_observations + 12 * (
+                    cfg.history.pos_num_history_stack - 1 + cfg.history.vel_num_history_stack - 1 + cfg.history.action_num_history_stack - 1)
         self.num_privileged_obs = cfg.env.num_privileged_obs
         self.num_actions = cfg.env.num_actions
 

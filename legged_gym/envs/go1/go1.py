@@ -106,6 +106,17 @@ class Go1(LeggedRobot):
 
         return dVel
 
+    # def compute_observations(self):
+    #     super().compute_observations()
+    #
+    #     if (pos_num_history_stack != 0 or vel_num_history_stack != 0 or action_num_history_stack != 0):
+    #         self.obs_buf = torch.cat((  self.obs_buf,
+    #                                     self.dof_pos_hist[:,:(self.pos_num_hist - 1) * self.num_dof] * self.obs_scales.dof_pos,
+    #                                     self.dof_vel_hist[:,:(self.vel_num_hist - 1) * self.num_dof] * self.obs_scales.dof_vel,
+    #                                     self.dof_action_hist[:, :(self.action_num_hist - 1) * self.num_dof] * 1.0
+    #                                  ),
+    #                                 dim=-1)
+
 
 
 

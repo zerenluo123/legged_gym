@@ -98,6 +98,11 @@ class Go1RoughCfg(LeggedRobotCfg):
     #     clip_observations = 100.0
     #     clip_actions = 10.0
 
+    class history(LeggedRobotCfg.history):
+        pos_num_history_stack = 4
+        vel_num_history_stack = 4
+        action_num_history_stack = 3
+
 
 class Go1RoughCfgPPO(LeggedRobotCfgPPO):
     class algorithm(LeggedRobotCfgPPO.algorithm):
