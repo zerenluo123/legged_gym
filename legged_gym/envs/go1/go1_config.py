@@ -36,7 +36,7 @@ class Go1RoughCfg(LeggedRobotCfg):
         num_observations = 48
 
     class terrain(LeggedRobotCfg.terrain):
-        mesh_type = 'plane'
+        mesh_type = 'trimesh'
         measure_heights = False
 
     class init_state(LeggedRobotCfg.init_state):
