@@ -47,12 +47,12 @@ class Go1(LeggedRobot):
             self.actuator_network = UniNet(sub_model)
 
         # get mean and std of input and output from data
-        self.pos_err_mean = torch.tile(torch.tensor([0.00036421,  0.01543137, -0.0097752]), (LEG_NUM, )).to(self.device)
-        self.pos_err_std = torch.tile(torch.tensor([0.1172312,  0.19270167, 0.28684488]), (LEG_NUM, )).to(self.device)
-        self.vel_mean = torch.tile(torch.tensor([-0.00020477, -0.00015952,  0.00053407]), (LEG_NUM, )).to(self.device)
-        self.vel_std = torch.tile(torch.tensor([2.31525762, 3.84607944, 5.5258523 ]), (LEG_NUM, )).to(self.device)
-        self.dVel_mean = torch.tile(torch.tensor([1.01878667e-05, -2.13087582e-05,  9.61515984e-06]), (LEG_NUM, )).to(self.device)
-        self.dVel_std = torch.tile(torch.tensor([0.3751104,  0.64337925, 0.9943112]), (LEG_NUM, )).to(self.device)
+        self.pos_err_mean = torch.tile(torch.tensor([0.00014115, 0.00058488, 0.01920658]), (LEG_NUM, )).to(self.device)
+        self.pos_err_std = torch.tile(torch.tensor([0.09986748, 0.15384995, 0.23037557]), (LEG_NUM, )).to(self.device)
+        self.vel_mean = torch.tile(torch.tensor([-0.00013513, -0.00010417,  0.00087039]), (LEG_NUM, )).to(self.device)
+        self.vel_std = torch.tile(torch.tensor([1.56212732, 2.27749993, 3.34788431]), (LEG_NUM, )).to(self.device)
+        self.dVel_mean = torch.tile(torch.tensor([3.69162194e-06, -1.25283373e-06, -9.83731829e-06]), (LEG_NUM, )).to(self.device)
+        self.dVel_std = torch.tile(torch.tensor([0.28239333, 0.41029372, 0.65388311]), (LEG_NUM, )).to(self.device)
 
 
 

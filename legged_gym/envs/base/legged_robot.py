@@ -97,8 +97,8 @@ class LeggedRobot(BaseTask):
 
             # ! Note: Position control
             self.dof_pos, self.dof_vel = self._actuator_advance(self.actions)
-            self.dof_state[..., 0] = self.dof_pos
-            self.dof_state[..., 1] = self.dof_vel
+            self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0] = self.dof_pos
+            self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1] = self.dof_vel
             # self.dof_state[..., 0] = self.actions
             self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.dof_state))
 
