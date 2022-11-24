@@ -68,7 +68,7 @@ class Go1RoughCfg(LeggedRobotCfg):
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
         use_actuator_network = True
-        actuator_net_file = "{LEGGED_GYM_ROOT_DIR}/resources/actuator_nets/go1_net.pt"
+        actuator_net_file = "{LEGGED_GYM_ROOT_DIR}/resources/actuator_nets/go1_net_hist_50.pt"
 
     class asset(LeggedRobotCfg.asset):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go1/urdf/go1.urdf'
@@ -82,13 +82,13 @@ class Go1RoughCfg(LeggedRobotCfg):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.25
 
-        class scales(LeggedRobotCfg.rewards.scales):
-            # orientation = -5.0
-            feet_air_time = 1.0
-            # torques = -0.00025
-        #     dof_pos_limits = -10.0
-            action_rate = -0.02
-            energy = -0.00008
+        # class scales(LeggedRobotCfg.rewards.scales):
+        #     # orientation = -5.0
+        #     feet_air_time = 1.0
+        #     # torques = -0.00025
+        # #     dof_pos_limits = -10.0
+        #     action_rate = -0.02
+        #     energy = -0.00008
 
     # class normalization(LeggedRobotCfg.normalization):
     #     clip_observations = 100.0

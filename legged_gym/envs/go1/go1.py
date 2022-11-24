@@ -16,7 +16,7 @@ from .go1_config import Go1RoughCfg
 
 LEG_NUM = 4
 LEG_DOF = 3
-LEN_HIST = 5
+LEN_HIST = 50
 MODEL_IN_SIZE = 2 * LEG_DOF * LEN_HIST
 
 class UniNet(nn.Module):
@@ -115,9 +115,9 @@ class Go1(LeggedRobot):
         if self.cfg.control.use_actuator_network:
 
             # scale pos_err and vel TODO: clip
-            pos_err = actions - self.dof_pos
+            pos_err = actions - self.act_pos
             pos_err_s = (pos_err - self.pos_err_mean) / self.pos_err_std
-            vel_s = (self.dof_vel - self.vel_mean) / self.vel_std
+            vel_s = (self.act_vel - self.vel_mean) / self.vel_std
 
             # TODO: note that the pos_err is of 12-dim, but real model_in is od=f 3-dim
             model_in = np.array([])
@@ -137,13 +137,12 @@ class Go1(LeggedRobot):
             with torch.inference_mode():
                 # advance actuator mlp
                 dVel = self.actuator_network(self.model_ins)
-
                 # upscale mlp output
                 dVel *= self.dVel_std
                 dVel += self.dVel_mean
 
-            target_vels = self.dof_vel + dVel
-            target_poses = self.dof_pos + self.sim_params.dt * target_vels
+            target_vels = self.act_vel + dVel
+            target_poses = self.act_pos + self.sim_params.dt * target_vels
 
             # print("**********************")
             # print(target_poses)
