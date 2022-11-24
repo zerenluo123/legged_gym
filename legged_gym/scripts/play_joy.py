@@ -31,6 +31,8 @@ class PlayJoy():
         self.env_cfg.noise.add_noise = False
         self.env_cfg.domain_rand.randomize_friction = False
         self.env_cfg.domain_rand.push_robots = False
+        self.env_cfg.domain_rand.randomize_base_mass = False
+        self.env_cfg.domain_rand.randomize_limb_mass = False
 
         # fixed velocity direction evaluation (make sure the value is within the training range)
         self.env_cfg.commands.heading_command = False

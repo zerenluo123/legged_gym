@@ -316,10 +316,22 @@ class LeggedRobot(BaseTask):
         #         sum += p.mass
         #         print(f"Mass of body {i}: {p.mass} (before randomization)")
         #     print(f"Total mass {sum} (before randomization)")
-        # randomize base mass
-        if self.cfg.domain_rand.randomize_base_mass:
-            rng = self.cfg.domain_rand.added_mass_range
-            props[0].mass += np.random.uniform(rng[0], rng[1])
+
+        for i, p in enumerate(props):
+            if i == 0: # randomize base mass
+                if self.cfg.domain_rand.randomize_base_mass:
+                    rng = self.cfg.domain_rand.added_mass_range
+                    p.mass += np.random.uniform(rng[0], rng[1])
+            else: # randomize limb mass
+                if self.cfg.domain_rand.randomize_limb_mass:
+                    rng = self.cfg.domain_rand.added_limb_percentage
+                    p.mass *= (1 + np.random.uniform(rng[0], rng[1]) )
+            # print(f"Mass of body {i}: {p.mass} (after randomization)")
+
+        # # randomize base mass
+        # if self.cfg.domain_rand.randomize_base_mass:
+        #     rng = self.cfg.domain_rand.added_mass_range
+        #     props[0].mass += np.random.uniform(rng[0], rng[1])
         return props
 
     def _post_physics_step_callback(self):

@@ -81,6 +81,8 @@ class Go1RoughCfg(LeggedRobotCfg):
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_base_mass = True
         added_mass_range = [-1., 1.]
+        randomize_limb_mass = True
+        added_limb_percentage = [-0.2, 0.2]
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.9

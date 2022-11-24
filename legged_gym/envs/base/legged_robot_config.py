@@ -126,6 +126,8 @@ class LeggedRobotCfg(BaseConfig):
         friction_range = [0.5, 1.25]
         randomize_base_mass = False
         added_mass_range = [-1., 1.]
+        randomize_limb_mass = False
+        added_limb_percentage = [-0.2, 0.2]
         push_robots = True
         push_interval_s = 15
         max_push_vel_xy = 1.
@@ -248,6 +250,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = 'Nov18_05-40-37_'  # -1 = last run
+        load_run = 'Nov23_11-58-45_'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
