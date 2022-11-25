@@ -49,6 +49,8 @@ def play(args):
     env_cfg.noise.add_noise = False
     env_cfg.domain_rand.randomize_friction = False
     env_cfg.domain_rand.push_robots = False
+    env_cfg.domain_rand.randomize_base_mass = False
+    env_cfg.domain_rand.randomize_limb_mass = False
 
     # fixed velocity direction evaluation (make sure the value is within the training range)
     env_cfg.commands.ranges.lin_vel_x = [0.5, 0.5]
