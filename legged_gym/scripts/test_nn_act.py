@@ -74,22 +74,27 @@ def play(args):
 
     # Create actor-hand-crafted policy
     kin_actor = KinematicActor()
-    rand_i = 0  # Fixing a motion
-    kin_actor.load_reference_motion(motion_frames[rand_i])
+    rand_i = 1  # Fixing a motion
+    # kin_actor.load_reference_motion(motion_frames[rand_i])
 
     # Load the real motions from .txt files (different instantiations)
-    real_motion_txts = glob.glob("motions/*.txt")
-    print(f"Loaded real motions: `{real_motion_txts}`")
-    real_motion_frames = [np.loadtxt(fn) for fn in real_motion_txts]
+    real_pos_txts = glob.glob("motions/*.txt")
+    print(f"Loaded real pose: `{real_pos_txts}`")
+    real_pos_frames = [np.loadtxt(fn) for fn in real_pos_txts]
     real_vel_txts = glob.glob("velocities/*.txt")
-    print(f"Loaded real motions: `{real_vel_txts}`")
+    print(f"Loaded real velocity: `{real_vel_txts}`")
     real_vel_frames = [np.loadtxt(fn) for fn in real_vel_txts]
+    real_act_txts = glob.glob("acts/*.txt")
+    print(f"Loaded real actions: `{real_act_txts}`")
+    real_act_frames = [np.loadtxt(fn) for fn in real_act_txts]
 
     # Create real pos logger
-    real_actor = KinematicActor()
-    real_actor.load_reference_motion(real_motion_frames[rand_i])
+    real_pos_actor = KinematicActor()
+    real_pos_actor.load_reference_motion(real_pos_frames[rand_i])
     real_vel_actor = KinematicActor()
     real_vel_actor.load_reference_motion(real_vel_frames[rand_i])
+    real_act_actor = KinematicActor()
+    real_act_actor.load_reference_motion(real_act_frames[rand_i])
 
     # env
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
@@ -120,27 +125,33 @@ def play(args):
         env._set_body_pose_to_actors_fixed_at_origin(fixed_pose)
 
         # the action should be the "high-level" measured one
-        kin_actor.load_next_frame()
-        actions = torch.tensor(kin_actor.actions, dtype=torch.float).unsqueeze(0)
+        # kin_actor.load_next_frame()
+        # actions = torch.tensor(kin_actor.actions, dtype=torch.float).unsqueeze(0)
+        real_act_actor.load_next_frame_indexed(8)
+        target_poses = (real_act_actor.real_frame - env.default_dof_pos.cpu().numpy().squeeze()) / env.cfg.control.action_scale
+        actions = torch.tensor(target_poses, dtype=torch.float).unsqueeze(0)
 
         # Note: this action are used to simulate and act-Net in 200 Hz/0.005s
         _, _, rews, dones, infos = env.step(actions.detach())
 
-        # ! for logging
-        # TODO: load the real pos for comparison.
+        # ! for logging: load the real pos for comparison.
         #  Note: the pos measured on the real robot ~ 400 Hz/0.0025, while action is updated in 0.005*4=0.02s~50Hz. So we should take 1 point every 8 points
-        real_actor.load_next_frame_indexed(8)
+        real_pos_actor.load_next_frame_indexed(8)
         real_vel_actor.load_next_frame_indexed(8)
-        real_pos = torch.tensor(real_actor.real_frame, dtype=torch.float).unsqueeze(0)
+        # real_act_actor.load_next_frame_indexed(8)
+        real_pos = torch.tensor(real_pos_actor.real_frame, dtype=torch.float).unsqueeze(0)
         real_vel = torch.tensor(real_vel_actor.real_frame, dtype=torch.float).unsqueeze(0)
+        real_act = torch.tensor(real_act_actor.real_frame, dtype=torch.float).unsqueeze(0)
 
-        if 100 < i < stop_state_log:
+        if 5 < i < stop_state_log:
             logger.log_states(
                 {
                     # 'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
                     # TODO: the pos measured on the real robot ~ 400 Hz/0.0025
                     'real_pos': real_pos[robot_index, joint_index].item(),
+                    'real_actions': real_act[robot_index, joint_index].item(),
                     'dof_pos': env.dof_pos[robot_index, joint_index].item(),
+                    # 'dof_actions': env.actions[robot_index, joint_index].item(),
                     'real_vel': real_vel[robot_index, joint_index].item(),
                     'dof_vel': env.dof_vel[robot_index, joint_index].item(),
                 }

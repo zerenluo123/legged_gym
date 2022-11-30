@@ -139,6 +139,7 @@ class LeggedRobot(BaseTask):
         self.check_termination()
         self.compute_reward()
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
+        # print("reset", env_ids.shape)
         self.reset_idx(env_ids)
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
 
@@ -155,6 +156,12 @@ class LeggedRobot(BaseTask):
         self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         self.reset_buf |= self.time_out_buf
+
+        pos_lim_lower_buf = torch.any(self.dof_pos <= self.dof_pos_limits[:, 0], dim=1)
+        pos_lim_upper_buf = torch.any(self.dof_pos >= self.dof_pos_limits[:, 1], dim=1)
+        self.reset_buf |= pos_lim_lower_buf
+        self.reset_buf |= pos_lim_upper_buf
+        # print("reset because pos limit", (pos_lim_lower_buf | pos_lim_upper_buf).nonzero(as_tuple=False).flatten().shape)
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -391,6 +398,7 @@ class LeggedRobot(BaseTask):
     def _compute_poses(self, actions):
         actions_scaled = actions * self.cfg.control.action_scale  # wo - current pos is better than w - current pos
         target_poses = actions_scaled + self.default_dof_pos
+        # target_poses = actions
         return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1])
 
     def _actuator_advance(self, actions):

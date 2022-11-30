@@ -47,12 +47,14 @@ class Go1(LeggedRobot):
             self.actuator_network = UniNet(sub_model)
 
         # get mean and std of input and output from data
-        self.pos_err_mean = torch.tile(torch.tensor([0.00014115, 0.00058488, 0.01920658]), (LEG_NUM, )).to(self.device)
-        self.pos_err_std = torch.tile(torch.tensor([0.09986748, 0.15384995, 0.23037557]), (LEG_NUM, )).to(self.device)
-        self.vel_mean = torch.tile(torch.tensor([-0.00013513, -0.00010417,  0.00087039]), (LEG_NUM, )).to(self.device)
-        self.vel_std = torch.tile(torch.tensor([1.56212732, 2.27749993, 3.34788431]), (LEG_NUM, )).to(self.device)
+        self.pos_err_mean = torch.tile(torch.tensor( [0.00013177, 0.00023659, 0.01997889]), (LEG_NUM, )).to(self.device)
+        self.pos_err_std = torch.tile(torch.tensor([0.09988626, 0.15470642, 0.23311185]), (LEG_NUM, )).to(self.device)
+        self.vel_mean = torch.tile(torch.tensor( [ 6.23736086e-06, -3.09437409e-05,  7.87997899e-04]), (LEG_NUM, )).to(self.device)
+        self.vel_std = torch.tile(torch.tensor( [1.5616826,  2.2764919,  3.34624232]), (LEG_NUM, )).to(self.device)
         self.dVel_mean = torch.tile(torch.tensor([3.69162194e-06, -1.25283373e-06, -9.83731829e-06]), (LEG_NUM, )).to(self.device)
         self.dVel_std = torch.tile(torch.tensor([0.28239333, 0.41029372, 0.65388311]), (LEG_NUM, )).to(self.device)
+
+        self.enforce_pos_limit = True # change this for comparison
 
 
 
@@ -114,10 +116,10 @@ class Go1(LeggedRobot):
 
         if self.cfg.control.use_actuator_network:
 
-            # scale pos_err and vel TODO: clip
-            pos_err = actions - self.act_pos
+            # scale pos_err and vel (actionscaled = actions * scale + defaultangle, also need to be the same for the training data?)
+            pos_err = actions * self.cfg.control.action_scale + self.default_dof_pos - self.dof_pos
             pos_err_s = (pos_err - self.pos_err_mean) / self.pos_err_std
-            vel_s = (self.act_vel - self.vel_mean) / self.vel_std
+            vel_s = (self.dof_vel - self.vel_mean) / self.vel_std
 
             # TODO: note that the pos_err is of 12-dim, but real model_in is od=f 3-dim
             model_in = np.array([])
@@ -141,16 +143,81 @@ class Go1(LeggedRobot):
                 dVel *= self.dVel_std
                 dVel += self.dVel_mean
 
-            target_vels = self.act_vel + dVel
-            target_poses = self.act_pos + self.sim_params.dt * target_vels
+            # target_vels = self.dof_vel + dVel
+            # target_poses = self.dof_pos + self.sim_params.dt * target_vels
 
-            # print("**********************")
-            # print(target_poses)
+            target_poses = self.dof_pos + self.sim_params.dt * self.dof_vel
+            # target_vels = self.dof_vel + dVel
 
-            return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1]).view(self.dof_pos.shape), \
-                   target_vels.view(self.dof_vel.shape)
+            # if at limit, compute new veldiff at that limit (! only handle those point out of the joint limit !)
+            # only allow for velocities moving away from limit
+            if self.enforce_pos_limit:
+                enforce_pos_limit_ids = (torch.any(target_poses <= self.dof_pos_limits[:, 0], dim=1) |
+                                         torch.any(target_poses >= self.dof_pos_limits[:, 1], dim=1)).nonzero(as_tuple=False).flatten()
+                # print("enforce_pos_limit_ids", enforce_pos_limit_ids.shape)
+                target_vels_l, target_poses_l, actions_l = self.dof_vel[enforce_pos_limit_ids, :], \
+                                                           target_poses[enforce_pos_limit_ids, :], \
+                                                           actions[enforce_pos_limit_ids, :]
+                pos_err_buffs_l, vel_buffs_l = self.pos_err_buffs[enforce_pos_limit_ids, :], self.vel_buffs[enforce_pos_limit_ids, :]
+                model_ins_l = self.model_ins[enforce_pos_limit_ids, :]
 
-            # return super()._actuator_advance(actions)
+                # set vel to 0 if out of joint limits
+                target_vels_l *= ( (target_poses_l > self.dof_pos_limits[:, 0]) & (target_poses_l < self.dof_pos_limits[:, 1]) ) # dim: [nidxs, 12]
+                # clip pos to limits
+                target_poses_l = torch.clip(target_poses_l, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1])
 
+                pos_err_l = actions_l * self.cfg.control.action_scale + self.default_dof_pos - target_poses_l
+                pos_err_l_s = (pos_err_l - self.pos_err_mean) / self.pos_err_std
+                vel_l_s = (target_vels_l - self.vel_mean) / self.vel_std
+
+                for i in range(self.num_actions):
+                    # fill buffers with scaled data [t-h, ... , t-0]
+                    # hist can be different for each joint
+                    pos_err_temp = pos_err_buffs_l[:, i, :][:, 1:]  # delete the first column
+                    pos_err_buffs_l[:, i, :] = torch.cat((pos_err_temp, pos_err_l_s[:, i].unsqueeze(-1)), dim=1)
+
+                    vel_temp = vel_buffs_l[:, i, :][:, 1:]
+                    vel_buffs_l[:, i, :] = torch.cat((vel_temp, vel_l_s[:, i].unsqueeze(-1)), dim=1)
+
+                    # fill actuator model input vector
+                    model_ins_l[:, 2 * i * LEN_HIST:(2 * i + 1) * LEN_HIST] = pos_err_buffs_l[:, i, :]
+                    model_ins_l[:, (2 * i + 1) * LEN_HIST:(2 * i + 2) * LEN_HIST] = vel_buffs_l[:, i, :]
+
+                with torch.inference_mode():
+                    # advance actuator mlp
+                    dVel_l = self.actuator_network(model_ins_l)    # dim: [nidxs, 12]
+                    # upscale mlp output
+                    dVel_l *= self.dVel_std
+                    dVel_l += self.dVel_mean
+
+                    # only allow for vel moving away from limit
+                    mask_lower = target_poses_l <= self.dof_pos_limits[:, 0] # not out-of-lower-limit: 0; out-of-lower-limit: 1
+                    mask_upper = target_poses_l >= self.dof_pos_limits[:, 1] # not out-of-upper-limit: 0; out-of-upper-limit: 1
+                    mask_lower_filter = torch.gt(dVel_l, torch.zeros_like(dVel_l)) # higher than 0: preserved; lower than 0: 0
+                    mask_upper_filter = ~mask_lower_filter
+
+                    dVel_lower_filter = dVel_l * mask_lower_filter * mask_lower  # higher than 0: preserved; lower than 0: 0
+                    dVel_l *= ~mask_lower                                        # not out-of-lower-limit: preserved; out-of-lower-limit: 0
+                    dVel_l += dVel_lower_filter
+
+                    dVel_upper_filter = dVel_l * mask_upper_filter * mask_upper   # lower than 0: preserved; higher than 0: 0
+                    dVel_l *= ~mask_upper                                         # not out-of-upper-limit: preserved; out-of-upper-limit: 0
+                    dVel_l += dVel_upper_filter
+
+                    # push the modified "out-of-limit" value back to original value
+                    dVel[enforce_pos_limit_ids, :] = dVel_l
+
+                # push the modified "out-of-limit" value back to original value
+                self.dof_vel[enforce_pos_limit_ids, :], target_poses[enforce_pos_limit_ids, :] = target_vels_l, target_poses_l
+                self.pos_err_buffs[enforce_pos_limit_ids, :], self.vel_buffs[enforce_pos_limit_ids, :] = pos_err_buffs_l, vel_buffs_l
+                self.model_ins[enforce_pos_limit_ids, :] = model_ins_l
+
+            target_vels = self.dof_vel + dVel
+
+
+            # return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1]).view(self.dof_pos.shape), \
+            #        target_vels.view(self.dof_vel.shape)
+
+            return target_poses.view(self.dof_pos.shape), target_vels.view(self.dof_vel.shape)
         else:
             return super()._actuator_advance(actions)

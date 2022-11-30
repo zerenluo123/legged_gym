@@ -128,7 +128,7 @@ class Logger:
         plt.show()
 
     def _plot_dof(self):
-        init_count = 40
+        init_count = 0
         nb_rows = 2
         nb_cols = 1
         fig, axs = plt.subplots(nb_rows, nb_cols)
@@ -139,14 +139,17 @@ class Logger:
         log = self.state_log
         # plot joint targets and measured positions
         a = axs[0]
-        if log["dof_pos"]: a.plot(time_s, log["dof_pos"][init_count:], label='measured')
-        if log["real_pos"]: a.plot(time, log["real_pos"], label='real')
+        if log["dof_pos"]: a.plot(time_s, log["dof_pos"][init_count:], label='simulation')
+        if log["dof_actions"]: a.plot(time, log["dof_actions"], label='dof actions')
+        if log["real_pos"]: a.plot(time, log["real_pos"], label='real pose')
+        if log["real_actions"]: a.plot(time, log["real_actions"], label='real actions')
+
         a.set(xlabel='time [s]', ylabel='Position [rad]', title='DOF Position')
         a.legend()
         # plot joint velocity
         a = axs[1]
-        if log["dof_vel"]: a.plot(time_s, log["dof_vel"][init_count:], label='measured')
-        if log["real_vel"]: a.plot(time, log["real_vel"], label='real')
+        if log["dof_vel"]: a.plot(time_s, log["dof_vel"][init_count:], label='simulation')
+        if log["real_vel"]: a.plot(time, log["real_vel"], label='real velocity')
         a.set(xlabel='time [s]', ylabel='Velocity [rad/s]', title='Joint Velocity')
         a.legend()
         plt.show()
