@@ -39,7 +39,7 @@ def play(args):
 
     for i in range(10 * int(env.max_episode_length)):
         # Sets the pose to be fixed at origin. equivalent to hang the robot
-        fixed_pose = torch.tensor([[0.0, 0.0, 0.6, 0., -0., -0., 0.5]], dtype=torch.float)
+        fixed_pose = torch.tensor([[0.0, 0.0, 0.2, 0., -0., -0., 0.5]], dtype=torch.float)
         env._set_body_pose_to_actors_fixed_at_origin(fixed_pose)
 
         osc1 = 0.5 * np.sin(i / 20)  # sinusoidal function

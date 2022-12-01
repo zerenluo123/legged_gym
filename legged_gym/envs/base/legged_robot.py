@@ -91,16 +91,18 @@ class LeggedRobot(BaseTask):
             # self.torques = self._compute_torques(self.actions).view(self.torques.shape)
             # self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
 
-            # # ! Note: Position PD control
-            # self.target_poses = self._compute_poses(self.actions).view(self.target_poses.shape)
-            # self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self.target_poses))
 
-            # ! Note: Position control
-            self.dof_pos, self.dof_vel = self._actuator_advance(self.actions)
-            self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0] = self.dof_pos
-            self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1] = self.dof_vel
-            # self.dof_state[..., 0] = self.actions
-            self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.dof_state))
+            if not self.cfg.control.use_actuator_network:
+                # ! Note: Position PD control
+                self.target_poses = self._compute_poses(self.actions).view(self.target_poses.shape)
+                self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self.target_poses))
+            else:
+                # ! Note: Position control
+                self.dof_pos, self.dof_vel = self._actuator_advance(self.actions)
+                self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0] = self.dof_pos
+                self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1] = self.dof_vel
+                # self.dof_state[..., 0] = self.actions
+                self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.dof_state))
 
             self.gym.simulate(self.sim)
             if self.device == 'cpu':
@@ -707,14 +709,15 @@ class LeggedRobot(BaseTask):
         for name in self.cfg.asset.terminate_after_contacts_on:
             termination_contact_names.extend([s for s in body_names if name in s])
 
-        # # ! set gym's PD controller
-        # for i in range(self.num_dof):
-        #     name = self.dof_names[i]
-        #     for dof_name in self.cfg.control.stiffness.keys():
-        #         if dof_name in name:
-        #             dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
-        #             dof_props_asset['stiffness'][i] = self.cfg.control.stiffness[dof_name] #self.Kp
-        #             dof_props_asset['damping'][i] = self.cfg.control.damping[dof_name] #self.Kd
+        if not self.cfg.control.use_actuator_network:
+            # ! set gym's PD controller
+            for i in range(self.num_dof):
+                name = self.dof_names[i]
+                for dof_name in self.cfg.control.stiffness.keys():
+                    if dof_name in name:
+                        dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
+                        dof_props_asset['stiffness'][i] = self.cfg.control.stiffness[dof_name] #self.Kp
+                        dof_props_asset['damping'][i] = self.cfg.control.damping[dof_name] #self.Kd
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)
