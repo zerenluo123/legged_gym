@@ -1,12 +1,13 @@
 # Isaac Gym Environments for Legged Robots #
-This repository provides the environment used to train ANYmal (and other robots) to walk on rough terrain using NVIDIA's Isaac Gym.
-It includes all components needed for sim-to-real transfer: actuator network, friction & mass randomization, noisy observations and random pushes during training.  
-**Maintainer**: Nikita Rudin  
-**Affiliation**: Robotic Systems Lab, ETH Zurich  
-**Contact**: rudinn@ethz.ch  
+This repository provides the environment used to train Unitree Go1 to walk on rough terrain using NVIDIA's Isaac Gym.
+It includes all components needed for sim-to-real transfer: actuator network(TODO), friction & mass randomization, noisy observations and random pushes during training.  
+**Maintainer**: Zeren Luo  
+**Affiliation**: Unitree Robotics
+
+[//]: # (**Contact**:  luozeren2@gmail.com )
 
 ### Useful Links ###
-Project website: https://leggedrobotics.github.io/legged_gym/
+Original Project website: https://leggedrobotics.github.io/legged_gym/
 Paper: https://arxiv.org/abs/2109.11978
 
 ### Installation ###
@@ -33,7 +34,7 @@ Paper: https://arxiv.org/abs/2109.11978
 
 ### Usage ###
 1. Train:  
-  ```python issacgym_anymal/scripts/train.py --task=anymal_c_flat```
+  ```python legged_gym/legged_gym/script/train.py --task=go1 --num_envs=1800```
     -  To run on CPU add following arguments: `--sim_device=cpu`, `--rl_device=cpu` (sim on CPU and rl on GPU is possible).
     -  To run headless (no rendering) add `--headless`.
     - **Important**: To improve performance, once the training starts press `v` to stop the rendering. You can then enable it later to check the progress.
@@ -45,13 +46,18 @@ Paper: https://arxiv.org/abs/2109.11978
      - --run_name RUN_NAME:  Name of the run.
      - --load_run LOAD_RUN:   Name of the run to load when resume=True. If -1: will load the last run.
      - --checkpoint CHECKPOINT:  Saved model checkpoint number. If -1: will load the last checkpoint.
-     - --num_envs NUM_ENVS:  Number of environments to create.
+     - --num_envs NUM_ENVS:  Number of environments to create(1800 in my case).
      - --seed SEED:  Random seed.
      - --max_iterations MAX_ITERATIONS:  Maximum number of training iterations.
 2. Play a trained policy:  
-```python issacgym_anymal/scripts/play.py --task=anymal_c_flat```
+```python legged_gym/legged_gym/script/play.py --task=go1```
     - By default the loaded policy is the last model of the last run of the experiment folder.
     - Other runs/model iteration can be selected by setting `load_run` and `checkpoint` in the train config.
+3. Play a trained policy with Joystick:
+```python legged_gym/legged_gym/script/play_joy.py --task=go1```
+    - Plug in the X-Box joystick, open another terminal:
+```rosrun joy joy_node```
+    - Please make sure your PC has installed ROS melodic or other version of ROS
 
 ### Adding a new environment ###
 The base environment `legged_robot` implements a rough terrain locomotion task. The corresponding cfg does not specify a robot asset (URDF/ MJCF) and no reward scales. 
