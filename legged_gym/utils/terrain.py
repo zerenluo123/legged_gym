@@ -78,8 +78,8 @@ class Terrain:
             (i, j) = np.unravel_index(k, (self.cfg.num_rows, self.cfg.num_cols))
 
             choice = np.random.uniform(0, 1)
-            choice = 0.14
-            difficulty = np.random.choice([0.5, 0.75, 0.9])
+            choice = 0.21
+            difficulty = np.random.choice([0.10, 0.20, 0.30])
             terrain = self.make_terrain(choice, difficulty)
             self.add_terrain_to_map(terrain, i, j)
         

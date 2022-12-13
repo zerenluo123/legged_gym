@@ -242,7 +242,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 24  # per iteration
-        max_iterations = 800  # number of policy updates
+        max_iterations = 2000  # number of policy updates
 
         # logging
         save_interval = 50  # check for potential saves every this many iterations
@@ -250,6 +250,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = 'Nov25_15-36-12_'  # -1 = last run
+        load_run = 'stairs'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
