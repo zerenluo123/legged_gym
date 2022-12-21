@@ -139,17 +139,17 @@ class LeggedRobotCfg(BaseConfig):
             tracking_ang_vel = 0.5
             lin_vel_z = -4.0
             ang_vel_xy = -0.01
-            # orientation = -0.
-            # torques = -0.00001
-            # dof_vel = -0.
-            # dof_acc = -2.5e-7
-            # base_height = -0.
+            orientation = -0.
+            torques = -0.00001
+            dof_vel = -0.
+            dof_acc = -2.5e-7
+            base_height = -0.
             feet_air_time = 1.0
-            # collision = -1.
-            # feet_stumble = -0.0
+            collision = -1.
+            feet_stumble = -0.0
             action_rate = -0.01
             # stand_still = -0.
-            energy = -0.00005
+            # energy = -0.00005
             # hip_motion = -0.02  # cosmetics 0.1
 
         only_positive_rewards = True  # if true negative total rewards are clipped at zero (avoids early termination problems)
@@ -250,6 +250,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = 'Dec07_05-09-10_'  # -1 = last run
+        load_run = 'Dec21_16-36-59_'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt

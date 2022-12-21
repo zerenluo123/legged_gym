@@ -90,11 +90,11 @@ class Go1RoughCfg(LeggedRobotCfg):
 
         class scales(LeggedRobotCfg.rewards.scales):
             # orientation = -5.0
-            feet_air_time = 0.5
-            # torques = -0.00025
-        #     dof_pos_limits = -10.0
-            action_rate = -0.02
-            energy = -0.00008
+            # feet_air_time = 0.5
+            torques = -0.00025
+            dof_pos_limits = -10.0
+            # action_rate = -0.02
+            # energy = -0.00008
 
     # class normalization(LeggedRobotCfg.normalization):
     #     clip_observations = 100.0
