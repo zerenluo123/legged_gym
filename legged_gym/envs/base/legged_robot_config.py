@@ -46,7 +46,7 @@ class LeggedRobotCfg(BaseConfig):
         horizontal_scale = 0.1  # [m]
         vertical_scale = 0.005  # [m]
         border_size = 25  # [m]
-        curriculum = True
+        curriculum = False   # curriculum training set to True, testing set to False
         static_friction = 1.0
         dynamic_friction = 1.0
         restitution = 0.
@@ -139,17 +139,17 @@ class LeggedRobotCfg(BaseConfig):
             tracking_ang_vel = 0.5
             lin_vel_z = -4.0
             ang_vel_xy = -0.01
-            # orientation = -0.
-            # torques = -0.00001
-            # dof_vel = -0.
-            # dof_acc = -2.5e-7
-            # base_height = -0.
+            orientation = -0.
+            torques = -0.00001
+            dof_vel = -0.
+            dof_acc = -2.5e-7
+            base_height = -0.
             feet_air_time = 1.0
-            # collision = -1.
-            # feet_stumble = -0.0
+            collision = -1.
+            feet_stumble = -0.0
             action_rate = -0.01
             # stand_still = -0.
-            energy = -0.00005
+            # energy = -0.00005
             # hip_motion = -0.02  # cosmetics 0.1
 
         only_positive_rewards = True  # if true negative total rewards are clipped at zero (avoids early termination problems)
@@ -247,7 +247,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 24  # per iteration
-        max_iterations = 800  # number of policy updates
+        max_iterations = 2000  # number of policy updates
 
         # logging
         save_interval = 50  # check for potential saves every this many iterations
@@ -255,6 +255,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = 'Nov23_11-58-45_'  # -1 = last run
+        load_run = 'blind_curri_hist'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
