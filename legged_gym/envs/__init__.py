@@ -41,6 +41,8 @@ from .a1.a1_config import A1RoughCfg, A1RoughCfgPPO
 from .a1_src.a1_src_config import A1SrcRoughCfgPPO, A1SrcRoughCfg
 from .go1.go1_config import Go1RoughCfgPPO, Go1RoughCfg
 from .go1.go1 import Go1
+from .aliengo.aliengo_config import AliengoRoughCfgPPO, AliengoRoughCfg
+from .aliengo.aliengo import Aliengo
 
 
 import os
@@ -54,3 +56,5 @@ task_registry.register( "a1", LeggedRobot, A1RoughCfg(), A1RoughCfgPPO() )
 task_registry.register( "cassie", Cassie, CassieRoughCfg(), CassieRoughCfgPPO() )
 task_registry.register( "a1_src", LeggedRobot, A1SrcRoughCfg(), A1SrcRoughCfgPPO() )
 task_registry.register( "go1", Go1, Go1RoughCfg(), Go1RoughCfgPPO() )
+task_registry.register( "aliengo", Aliengo, AliengoRoughCfg(), AliengoRoughCfgPPO() )
+

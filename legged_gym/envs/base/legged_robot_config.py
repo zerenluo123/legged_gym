@@ -46,7 +46,7 @@ class LeggedRobotCfg(BaseConfig):
         horizontal_scale = 0.1  # [m]
         vertical_scale = 0.005  # [m]
         border_size = 25  # [m]
-        curriculum = False   # curriculum training set to True, testing set to False
+        curriculum = True   # curriculum training set to True, testing set to False
         static_friction = 1.0
         dynamic_friction = 1.0
         restitution = 0.
@@ -250,6 +250,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = 'blind_curri'  # -1 = last run
+        load_run = 'vis_curri'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
