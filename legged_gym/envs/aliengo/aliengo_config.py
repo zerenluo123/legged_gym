@@ -42,20 +42,20 @@ class AliengoRoughCfg(LeggedRobotCfg):
     class init_state(LeggedRobotCfg.init_state):
         pos = [0.0, 0.0, 0.32]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
-            'FL_hip_joint': 0.,  # [rad]
-            'RL_hip_joint': 0.,  # [rad]
+            'FL_hip_joint': 0.1,  # [rad]
+            'RL_hip_joint': 0.1,  # [rad]
             'FR_hip_joint': -0.1,  # [rad]
             'RR_hip_joint': -0.1,  # [rad]
 
-            'FL_thigh_joint': 0.6,  # [rad]
-            'RL_thigh_joint': 0.8,  # [rad]
-            'FR_thigh_joint': 0.6,  # [rad]
-            'RR_thigh_joint': 0.8,  # [rad]
+            'FL_thigh_joint': 0.8,  # [rad]
+            'RL_thigh_joint': 1.,  # [rad]
+            'FR_thigh_joint': 0.8,  # [rad]
+            'RR_thigh_joint': 1.,  # [rad]
 
-            'FL_calf_joint': -0.7,  # [rad]
-            'RL_calf_joint': -0.7,  # [rad]
-            'FR_calf_joint': -0.7,  # [rad]
-            'RR_calf_joint': -0.7,  # [rad]
+            'FL_calf_joint': -1.5,  # [rad]
+            'RL_calf_joint': -1.5,  # [rad]
+            'FR_calf_joint': -1.5,  # [rad]
+            'RR_calf_joint': -1.5,  # [rad]
         }
 
     class control(LeggedRobotCfg.control):
@@ -80,7 +80,7 @@ class AliengoRoughCfg(LeggedRobotCfg):
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_base_mass = True
-        added_mass_range = [-1., 1.]
+        added_mass_range = [-2., 2.]
         randomize_limb_mass = True
         added_limb_percentage = [-0.2, 0.2]
 
