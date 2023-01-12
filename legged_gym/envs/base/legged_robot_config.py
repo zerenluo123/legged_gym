@@ -159,6 +159,7 @@ class LeggedRobotCfg(BaseConfig):
         soft_torque_limit = 1.
         base_height_target = 1.
         max_contact_force = 100.  # forces above this value are penalized
+        terminate_base_height = False
 
     class normalization:
         class obs_scales:
@@ -255,6 +256,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = 'blind_curri_hist'  # -1 = last run
+        load_run = 'flat_hist_8_rand'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt

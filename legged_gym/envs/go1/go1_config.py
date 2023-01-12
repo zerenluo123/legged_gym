@@ -36,7 +36,7 @@ class Go1RoughCfg(LeggedRobotCfg):
         num_observations = 48
 
     class terrain(LeggedRobotCfg.terrain):
-        mesh_type = 'trimesh'
+        mesh_type = 'plane'
         measure_heights = False       # comment if use visual
 
     class init_state(LeggedRobotCfg.init_state):
@@ -79,14 +79,15 @@ class Go1RoughCfg(LeggedRobotCfg):
         self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
 
     class domain_rand(LeggedRobotCfg.domain_rand):
-        randomize_base_mass = False
+        randomize_base_mass = True
         added_mass_range = [-1., 1.]
-        randomize_limb_mass = False
+        randomize_limb_mass = True
         added_limb_percentage = [-0.2, 0.2]
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.25
+        base_height_target = 0.2
+        terminate_base_height = False
 
         class scales(LeggedRobotCfg.rewards.scales):
             # orientation = -5.0
@@ -101,9 +102,9 @@ class Go1RoughCfg(LeggedRobotCfg):
     #     clip_actions = 10.0
 
     class history(LeggedRobotCfg.history): # previous state: >1; only current state: =1
-        pos_num_history_stack = 4
-        vel_num_history_stack = 4
-        action_num_history_stack = 3
+        pos_num_history_stack = 8
+        vel_num_history_stack = 8
+        action_num_history_stack = 7
 
 
 class Go1RoughCfgPPO(LeggedRobotCfgPPO):
