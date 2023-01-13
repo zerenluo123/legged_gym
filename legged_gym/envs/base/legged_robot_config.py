@@ -46,7 +46,7 @@ class LeggedRobotCfg(BaseConfig):
         horizontal_scale = 0.1  # [m]
         vertical_scale = 0.005  # [m]
         border_size = 25  # [m]
-        curriculum = False   # curriculum training set to True, testing set to False
+        curriculum = True   # curriculum training set to True, testing set to False
         static_friction = 1.0
         dynamic_friction = 1.0
         restitution = 0.

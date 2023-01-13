@@ -33,10 +33,10 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class Go1RoughCfg(LeggedRobotCfg):
     class env(LeggedRobotCfg.env):    # comment if use visual
-        num_observations = 48
+        num_observations = 45
 
     class terrain(LeggedRobotCfg.terrain):
-        mesh_type = 'plane'
+        mesh_type = 'trimesh'
         measure_heights = False       # comment if use visual
 
     class init_state(LeggedRobotCfg.init_state):
@@ -102,9 +102,9 @@ class Go1RoughCfg(LeggedRobotCfg):
     #     clip_actions = 10.0
 
     class history(LeggedRobotCfg.history): # previous state: >1; only current state: =1
-        pos_num_history_stack = 8
-        vel_num_history_stack = 8
-        action_num_history_stack = 7
+        pos_num_history_stack = 1
+        vel_num_history_stack = 1
+        action_num_history_stack = 1
 
 
 class Go1RoughCfgPPO(LeggedRobotCfgPPO):
