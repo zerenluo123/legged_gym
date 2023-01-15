@@ -102,9 +102,9 @@ class Go1RoughCfg(LeggedRobotCfg):
     #     clip_actions = 10.0
 
     class history(LeggedRobotCfg.history): # previous state: >1; only current state: =1
-        pos_num_history_stack = 8
-        vel_num_history_stack = 8
-        action_num_history_stack = 7
+        pos_num_history_stack = 1
+        vel_num_history_stack = 1
+        action_num_history_stack = 1
 
 
 class Go1RoughCfgPPO(LeggedRobotCfgPPO):

@@ -53,9 +53,9 @@ def play(args):
     env_cfg.domain_rand.randomize_limb_mass = False
 
     # fixed velocity direction evaluation (make sure the value is within the training range)
-    env_cfg.commands.ranges.lin_vel_x = [0.5, 0.5]
-    env_cfg.commands.ranges.lin_vel_y = [0.5, 0.5]
-    env_cfg.commands.ranges.heading = [-1.57, -1.57]
+    env_cfg.commands.ranges.lin_vel_x = [0.4, 0.4]
+    env_cfg.commands.ranges.lin_vel_y = [0., 0.]
+    env_cfg.commands.ranges.heading = [-0, -0]
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -74,7 +74,7 @@ def play(args):
     logger = Logger(env.dt)
     robot_index = 0 # which robot is used for logging
     joint_index = 1 # which joint is used for logging
-    stop_state_log = 100 # number of steps before plotting states
+    stop_state_log = 500 # number of steps before plotting states
     stop_rew_log = env.max_episode_length + 1 # number of steps before print average episode rewards
     camera_position = np.array(env_cfg.viewer.pos, dtype=np.float64)
     camera_vel = np.array([1., 1., 0.])
@@ -96,7 +96,7 @@ def play(args):
         if i < stop_state_log:
             logger.log_states(
                 {
-                    'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
+                    'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale + env.default_dof_pos[robot_index, joint_index].item(),
                     'dof_pos': env.dof_pos[robot_index, joint_index].item(),
                     'dof_vel': env.dof_vel[robot_index, joint_index].item(),
                     'dof_torque': env.torques[robot_index, joint_index].item(),
