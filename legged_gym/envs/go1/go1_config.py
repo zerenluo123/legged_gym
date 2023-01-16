@@ -33,10 +33,10 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class Go1RoughCfg(LeggedRobotCfg):
     class env(LeggedRobotCfg.env):    # comment if use visual
-        num_observations = 45
+        num_observations = 49
 
     class terrain(LeggedRobotCfg.terrain):
-        mesh_type = 'trimesh'
+        mesh_type = 'plane'
         measure_heights = False       # comment if use visual
 
     class init_state(LeggedRobotCfg.init_state):

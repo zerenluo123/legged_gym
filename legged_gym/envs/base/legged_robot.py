@@ -233,7 +233,7 @@ class LeggedRobot(BaseTask):
         #                           self.dof_action_hist[:, :(self.action_num_hist - 1) * self.num_dof] * 1.0
         #                           # no scale with action
         #                           ), dim=-1)
-
+        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         self.obs_buf = torch.cat((self.base_ang_vel * self.obs_scales.ang_vel,
                                   self.projected_gravity,
                                   self.commands[:, :3] * self.commands_scale,
@@ -242,8 +242,8 @@ class LeggedRobot(BaseTask):
                                   self.actions,
                                   self.dof_pos_hist[:, :(self.pos_num_hist - 1) * self.num_dof] * self.obs_scales.dof_pos,
                                   self.dof_vel_hist[:, :(self.vel_num_hist - 1) * self.num_dof] * self.obs_scales.dof_vel,
-                                  self.dof_action_hist[:, :(self.action_num_hist - 1) * self.num_dof] * 1.0
-                                  # no scale with action
+                                  self.dof_action_hist[:, :(self.action_num_hist - 1) * self.num_dof] * 1.0, # no scale with action
+                                  contact
                                   ), dim=-1)
 
         # add perceptive inputs if not blind
@@ -482,6 +482,10 @@ class LeggedRobot(BaseTask):
         max_vel = self.cfg.domain_rand.max_push_vel_xy
         self.root_states[:, 7:9] = torch_rand_float(-max_vel, max_vel, (self.num_envs, 2), device=self.device) # lin vel x/y
         self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
+    def _set_body_pose_to_actors_fixed_at_origin(self, fixed_pose):
+        self.root_states[:, :7] = fixed_pose
+        self.root_states[:, 7:10] = torch.zeros(self.num_envs, 3, device=self.device)
+        self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
 
     def _update_terrain_curriculum(self, env_ids):
         """ Implements the game-inspired curriculum.
@@ -553,6 +557,9 @@ class LeggedRobot(BaseTask):
         noise_vec[45:45 + 12 * (self.pos_num_hist - 1)] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
         noise_vec[45 + 12 * (self.pos_num_hist - 1):45 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1)] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
         noise_vec[45 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1):45 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1 + self.action_num_hist - 1)] = 0.
+
+        # TODO: tune the contact noise
+        noise_vec[45 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1 + self.action_num_hist - 1):45 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1 + self.action_num_hist - 1) + 4] = 0.
         print("&&&&&&&&& noise_vec shape2: ", noise_vec.shape)
 
         # if self.cfg.terrain.measure_heights:
