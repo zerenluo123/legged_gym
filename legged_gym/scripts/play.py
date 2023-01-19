@@ -73,13 +73,31 @@ def play(args):
 
     logger = Logger(env.dt)
     robot_index = 0 # which robot is used for logging
-    joint_index = 1 # which joint is used for logging
-    stop_state_log = 500 # number of steps before plotting states
+    joint_index = 2 # which joint is used for logging
+    stop_state_log = 300 # number of steps before plotting states
     stop_rew_log = env.max_episode_length + 1 # number of steps before print average episode rewards
     camera_position = np.array(env_cfg.viewer.pos, dtype=np.float64)
     camera_vel = np.array([1., 1., 0.])
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
     img_idx = 0
+
+    if BENCHMARK_GAZEBO:
+        # load data and save
+        gazebo_data_path = '/home/zerenluo/issac_sim/data'
+        gazebo_pos_path = os.path.join(gazebo_data_path, 'pos2.txt')
+        gazebo_pos = np.loadtxt(gazebo_pos_path, delimiter=',')[:, 1::2]
+        logger.log_gazebo_pos_states(gazebo_pos, joint_index)
+
+        obs_index = 1
+        gazebo_obs_path = os.path.join(gazebo_data_path, 'obs.txt')
+        gazebo_obs = np.loadtxt(gazebo_obs_path, delimiter=',')[635:1500, 1::2]
+        logger.log_gazebo_obs_states(gazebo_obs, obs_index)
+
+
+        # import matplotlib.pyplot as plt
+        # plt.plot(np.arange(gazebo_pos.shape[0]), gazebo_pos[:, 0])
+        # plt.show()
+
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
@@ -110,6 +128,13 @@ def play(args):
                     'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
                 }
             )
+            # if BENCHMARK_GAZEBO:
+            #     logger.log_states(
+            #         {
+            #             'gazebo_pos': gazebo_pos_frame[joint_index]
+            #         }
+            #     )
+
         elif i==stop_state_log:
             logger.plot_states()
         if  0 < i < stop_rew_log:
@@ -124,5 +149,6 @@ if __name__ == '__main__':
     EXPORT_POLICY = True
     RECORD_FRAMES = False
     MOVE_CAMERA = False
+    BENCHMARK_GAZEBO = False
     args = get_args()
     play(args)
