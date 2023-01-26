@@ -41,12 +41,24 @@ class Logger:
         self.num_episodes = 0
         self.plot_process = None
 
+        self.benchmark_gazebo_pos = False
+        self.benchmark_gazebo_obs = False
+
     def log_state(self, key, value):
         self.state_log[key].append(value)
 
     def log_states(self, dict):
         for key, value in dict.items():
             self.log_state(key, value)
+
+    def log_gazebo_pos_states(self, gazebo_pos, joint_index):
+        self.benchmark_gazebo_pos = True
+        self.gazebo_pos = gazebo_pos[:, joint_index]
+
+    def log_gazebo_obs_states(self, gazebo_obs, obs_index):
+        self.benchmark_gazebo_obs = True
+        self.gazebo_obs_idx = obs_index
+        self.gazebo_obs = gazebo_obs[:, obs_index]
 
     def log_rewards(self, dict, num_episodes):
         for key, value in dict.items():
@@ -73,7 +85,9 @@ class Logger:
         # plot joint targets and measured positions
         a = axs[1, 0]
         if log["dof_pos"]: a.plot(time, log["dof_pos"], label='measured')
-        if log["dof_pos_target"]: a.plot(time, log["dof_pos_target"], label='target')
+        # if log["dof_pos_target"]: a.plot(time, log["dof_pos_target"], label='target')
+        if self.benchmark_gazebo_pos:
+            a.plot(np.linspace(0., 6, self.gazebo_pos.shape[0]), self.gazebo_pos, label='gazebo')
         a.set(xlabel='time [s]', ylabel='Position [rad]', title='DOF Position')
         a.legend()
         # plot joint velocity
@@ -86,12 +100,16 @@ class Logger:
         a = axs[0, 0]
         if log["base_vel_x"]: a.plot(time, log["base_vel_x"], label='measured')
         if log["command_x"]: a.plot(time, log["command_x"], label='commanded')
+        if self.benchmark_gazebo_obs and self.gazebo_obs_idx == 0:
+            a.plot(np.linspace(0.3, 6.3, self.gazebo_obs.shape[0]), self.gazebo_obs, label='gazebo')
         a.set(xlabel='time [s]', ylabel='base lin vel [m/s]', title='Base velocity x')
         a.legend()
         # plot base vel y
         a = axs[0, 1]
         if log["base_vel_y"]: a.plot(time, log["base_vel_y"], label='measured')
         if log["command_y"]: a.plot(time, log["command_y"], label='commanded')
+        if self.benchmark_gazebo_obs and self.gazebo_obs_idx == 1:
+            a.plot(np.linspace(0., 5.8, self.gazebo_obs.shape[0]), self.gazebo_obs, label='gazebo')
         a.set(xlabel='time [s]', ylabel='base lin vel [m/s]', title='Base velocity y')
         a.legend()
         # plot base vel yaw
