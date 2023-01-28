@@ -93,7 +93,7 @@ class Go1RoughCfg(LeggedRobotCfg):
             # orientation = -5.0
             # feet_air_time = 0.5
             torques = -0.00025
-            dof_pos_limits = -10.0
+            dof_pos_limits = -100.0
             # action_rate = -0.04
             # energy = -0.00008
 
