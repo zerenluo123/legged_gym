@@ -214,6 +214,20 @@ class LeggedRobotCfg(BaseConfig):
         vel_num_history_stack = 1
         action_num_history_stack = 1
 
+    class MSO:
+        class model_rand:
+            randomize_friction = False
+            friction_range = [0.5, 1.25]
+            randomize_base_mass = True
+            added_mass_range = [-1., 1.]
+            randomize_com = False
+            com_range = [-0.015, 0.015]  # [m]
+            # motor strength
+            randomize_motor_strength = False
+            p_gains_range = [-0.8, 0.8]  # percentage
+            d_gains_range = [-0.8, 0.8]  # percentage
+
+
 
 class LeggedRobotCfgPPO(BaseConfig):
     seed = 1
@@ -259,3 +273,10 @@ class LeggedRobotCfgPPO(BaseConfig):
         load_run = '49ob_contact'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
+
+    class MSO: # meta strategy optimization related
+        optim_every_n = 5
+        UP_dim = 3  # latent variable dimension
+        group_envs = 2
+
+

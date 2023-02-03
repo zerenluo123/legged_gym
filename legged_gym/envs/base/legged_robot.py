@@ -299,10 +299,10 @@ class LeggedRobot(BaseTask):
                 num_buckets = 64
                 bucket_ids = torch.randint(0, num_buckets, (self.num_envs, 1))
                 friction_buckets = torch_rand_float(friction_range[0], friction_range[1], (num_buckets,1), device='cpu')
-                self.friction_coeffs = friction_buckets[bucket_ids]
+                self.friction_coeffs = friction_buckets[bucket_ids]  # torch.Size([numenvs, 1, 1])
 
             for s in range(len(props)):
-                props[s].friction = self.friction_coeffs[env_id]
+                props[s].friction = self.friction_coeffs[env_id]  # torch.Size([1, 1])
         return props
 
     def _process_dof_props(self, props, env_id):
@@ -343,6 +343,7 @@ class LeggedRobot(BaseTask):
 
         for i, p in enumerate(props):
             if i == 0: # randomize base mass
+                self.base_mass = p.mass
                 if self.cfg.domain_rand.randomize_base_mass:
                     rng = self.cfg.domain_rand.added_mass_range
                     p.mass += np.random.uniform(rng[0], rng[1])
@@ -816,6 +817,56 @@ class LeggedRobot(BaseTask):
         self.termination_contact_indices = torch.zeros(len(termination_contact_names), dtype=torch.long, device=self.device, requires_grad=False)
         for i in range(len(termination_contact_names)):
             self.termination_contact_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], termination_contact_names[i])
+
+    def resample_env_params(self):
+        for i in range(self.num_envs):
+            # find env instance
+            env = self.envs[i]
+            handle = self.gym.find_actor_handle(env, self.cfg.asset.name)
+
+            # MASS ~ 1 dim
+            if self.cfg.MSO.model_rand.randomize_base_mass:
+                body_props = self.gym.get_actor_rigid_body_properties(env, handle)
+                for i, p in enumerate(body_props):
+                    if i == 0:  # randomize base mass
+                        rng = self.cfg.MSO.model_rand.added_mass_range
+                        p.mass = self.base_mass + np.random.uniform(rng[0], rng[1])
+                self.gym.set_actor_rigid_body_properties(env, handle, body_props)
+
+            # MOTOR STRENGTH ~ 24 dims
+            if self.cfg.MSO.model_rand.randomize_motor_strength:
+                p_rng = self.cfg.MSO.model_rand.p_gains_range
+                d_rng = self.cfg.MSO.model_rand.d_gains_range
+                dof_props = self.gym.get_actor_dof_properties(env, handle)
+                # ! set gym's PD controller
+                for i in range(self.num_dof):
+                    name = self.dof_names[i]
+                    for dof_name in self.cfg.control.stiffness.keys():
+                        if dof_name in name:
+                            dof_props['driveMode'][i] = gymapi.DOF_MODE_POS
+                            dof_props['stiffness'][i] = self.cfg.control.stiffness[dof_name] * (1 + np.random.uniform(p_rng[0], p_rng[1]))  # self.Kp
+                            dof_props['damping'][i] = self.cfg.control.damping[dof_name] * (1 + np.random.uniform(d_rng[0], d_rng[1]))  # self.Kd
+                # print("p gain ", dof_props['stiffness'])
+                # print("d gain ", dof_props['damping'])
+                self.gym.set_actor_dof_properties(env, handle, dof_props)
+
+            # FRICTION ~ 1 dim
+            if self.cfg.MSO.model_rand.randomize_friction:
+                rand_friction = np.random.uniform(self.cfg.MSO.model_rand.friction_range[0], self.cfg.MSO.model_rand.friction_range[1])
+                rigid_shape_props = self.gym.get_actor_rigid_shape_properties(env, handle)
+                for p in rigid_shape_props:
+                    p.friction = rand_friction
+                self.gym.set_actor_rigid_shape_properties(env, handle, rigid_shape_props)
+
+            # COM ~ 3 dims
+            if self.cfg.MSO.model_rand.randomize_com:
+                body_props = self.gym.get_actor_rigid_body_properties(env, handle)
+                obj_com = [np.random.uniform(self.cfg.MSO.model_rand.com_range[0], self.cfg.MSO.model_rand.com_range[1]),
+                           np.random.uniform(self.cfg.MSO.model_rand.com_range[0], self.cfg.MSO.model_rand.com_range[1]),
+                           np.random.uniform(self.cfg.MSO.model_rand.com_range[0], self.cfg.MSO.model_rand.com_range[1])]
+                body_props[0].com.x, body_props[0].com.y, body_props[0].com.z = obj_com
+                self.gym.set_actor_rigid_body_properties(env, handle, body_props)
+
 
     def _get_env_origins(self):
         """ Sets environment origins. On rough terrain the origins are defined by the terrain platforms.
