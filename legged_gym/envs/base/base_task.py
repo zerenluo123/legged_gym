@@ -99,6 +99,8 @@ class BaseTask():
             self.gym.subscribe_viewer_keyboard_event(
                 self.viewer, gymapi.KEY_V, "toggle_viewer_sync")
 
+        self.obs_dict = {}
+
     def get_observations(self):
         return self.obs_buf
     

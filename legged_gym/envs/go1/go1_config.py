@@ -79,6 +79,8 @@ class Go1RoughCfg(LeggedRobotCfg):
         self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
 
     class domain_rand(LeggedRobotCfg.domain_rand):
+        randomize_friction = False
+        friction_range = [0.5, 1.25]
         randomize_base_mass = False
         added_mass_range = [-1., 1.]
         randomize_limb_mass = False
@@ -113,4 +115,4 @@ class Go1RoughCfgPPO(LeggedRobotCfgPPO):
 
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ''
-        experiment_name = 'rough_go1'
+        experiment_name = 'go1'

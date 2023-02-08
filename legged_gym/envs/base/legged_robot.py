@@ -187,8 +187,8 @@ class LeggedRobot(BaseTask):
         self.reset_buf[env_ids] = 1
         # fill extras
         self.extras["episode"] = {}
-        for key in self.episode_sums.keys():
-            self.extras["episode"]['rew_' + key] = torch.mean(self.episode_sums[key][env_ids]) / self.max_episode_length_s
+        for key in self.episode_sums.keys(): # if done, calculate extras(tensorboard) value, then set to 0
+            self.extras["episode"]['rew_' + key] = torch.mean(self.episode_sums[key][env_ids])
             self.episode_sums[key][env_ids] = 0.
         # log additional curriculum info
         if self.cfg.terrain.curriculum:
