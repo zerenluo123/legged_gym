@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
@@ -33,12 +33,14 @@ import os
 
 import isaacgym
 from legged_gym.envs import *
-from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Logger
+from legged_gym.utils import get_args, export_policy_as_jit, task_registry, Logger
 
 import numpy as np
 import torch
 
 from isaacgym.torch_utils import *
+from isaacgym import gymtorch, gymapi, gymutil
+
 
 
 def play(args):
@@ -61,12 +63,15 @@ def play(args):
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-    # obs = env.get_observations()
+
+    # set hand-crafted environment parameters
+    set_env_params(env_cfg, env)
+
     # load policy
-    train_cfg.runner.resume = True # set the mode to be evalution
+    train_cfg.runner.resume = True  # set the mode to be evalution
     ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
     policy = ppo_runner.get_inference_policy(device=env.device)
-    
+
     # export policy as a jit module (used to run it from C++)
     if EXPORT_POLICY:
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
@@ -74,10 +79,10 @@ def play(args):
         print('Exported policy as jit script to: ', path)
 
     logger = Logger(env.dt)
-    robot_index = 0 # which robot is used for logging
-    joint_index = 5 # which joint is used for logging
-    stop_state_log = 300 # number of steps before plotting states
-    stop_rew_log = env.max_episode_length + 1 # number of steps before print average episode rewards
+    robot_index = 0  # which robot is used for logging
+    joint_index = 5  # which joint is used for logging
+    stop_state_log = 300  # number of steps before plotting states
+    stop_rew_log = env.max_episode_length + 1  # number of steps before print average episode rewards
     camera_position = np.array(env_cfg.viewer.pos, dtype=np.float64)
     camera_vel = np.array([1., 1., 0.])
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
@@ -98,7 +103,6 @@ def play(args):
         gazebo_obs = np.loadtxt(gazebo_obs_path, delimiter=',')[:, 1::2]
         logger.log_gazebo_obs_states(gazebo_obs, obs_index)
 
-
         # import matplotlib.pyplot as plt
         # plt.plot(np.arange(gazebo_pos.shape[0]), gazebo_pos[:, joint_index])
         # plt.show()
@@ -108,16 +112,16 @@ def play(args):
     # init obs
     obs = torch.cat([obs, sample_task_embeddings], dim=-1)
 
-
-    for i in range(10*int(env.max_episode_length)):
+    for i in range(10 * int(env.max_episode_length)):
         actions = policy(obs.detach())
         obs_dict, rews, dones, infos = env.step(actions.detach())
         obs = torch.cat([obs_dict['obs'], sample_task_embeddings], dim=-1)
         if RECORD_FRAMES:
             if i % 2:
-                filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'frames', f"{img_idx}.png")
+                filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported',
+                                        'frames', f"{img_idx}.png")
                 env.gym.write_viewer_image_to_file(env.viewer, filename)
-                img_idx += 1 
+                img_idx += 1
         if MOVE_CAMERA:
             camera_position += camera_vel * env.dt
             env.set_camera(camera_position, camera_position + camera_direction)
@@ -125,7 +129,8 @@ def play(args):
         if i < stop_state_log:
             logger.log_states(
                 {
-                    'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale + env.default_dof_pos[robot_index, joint_index].item(),
+                    'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale +
+                                      env.default_dof_pos[robot_index, joint_index].item(),
                     'dof_pos': env.dof_pos[robot_index, joint_index].item(),
                     'dof_vel': env.dof_vel[robot_index, joint_index].item(),
                     'dof_torque': env.torques[robot_index, joint_index].item(),
@@ -146,15 +151,43 @@ def play(args):
             #         }
             #     )
 
-        elif i==stop_state_log:
+        elif i == stop_state_log:
             logger.plot_states()
-        if  0 < i < stop_rew_log:
+        if 0 < i < stop_rew_log:
             if infos["episode"]:
                 num_episodes = torch.sum(env.reset_buf).item()
-                if num_episodes>0:
+                if num_episodes > 0:
                     logger.log_rewards(infos["episode"], num_episodes)
-        elif i==stop_rew_log:
+        elif i == stop_rew_log:
             logger.print_rewards()
+
+
+def set_env_params(env_cfg, env):
+    for i in range(env.num_envs):
+
+        # find env instance
+        env_curr = env.envs[i]
+        handle = env.gym.find_actor_handle(env_curr, env.cfg.asset.name)
+
+        # MOTOR STRENGTH ~ 24 dims
+        # p_rng = env_cfg.MSO.model_rand.p_gains_range
+        # d_rng = env_cfg.MSO.model_rand.d_gains_range
+        dof_props = env.gym.get_actor_dof_properties(env_curr, handle)
+        # ! set gym's PD controller
+        for i in range(env.num_dof):
+            name = env.dof_names[i]
+            for dof_name in env_cfg.control.stiffness.keys():
+                if dof_name in name:
+                    dof_props['driveMode'][i] = gymapi.DOF_MODE_POS
+                    dof_props['stiffness'][i] = env_cfg.control.stiffness[dof_name] * (1 - 0.4)  # env.Kp
+                    dof_props['damping'][i] = env_cfg.control.damping[dof_name] * (1 - 0.4)  # env.Kd
+        # print("p gain ", dof_props['stiffness'])
+        # print("d gain ", dof_props['damping'])
+        env.gym.set_actor_dof_properties(env_curr, handle, dof_props)
+
+        # filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', 'go1', 'exported',
+        #                         'frames', f"{i}.png")
+        # env.gym.write_viewer_image_to_file(env.viewer, filename)
 
 if __name__ == '__main__':
     EXPORT_POLICY = True
