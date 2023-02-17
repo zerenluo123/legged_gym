@@ -79,12 +79,15 @@ class Go1RoughCfg(LeggedRobotCfg):
         self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
 
     class domain_rand(LeggedRobotCfg.domain_rand):
-        randomize_friction = False
+        randomize_friction = True
         friction_range = [0.5, 1.25]
         randomize_base_mass = False
         added_mass_range = [-1., 1.]
         randomize_limb_mass = False
         added_limb_percentage = [-0.2, 0.2]
+        randomize_motor_strength = True
+        p_gains_range = [-0.7, 0.0]  # percentage
+        d_gains_range = [-0.7, 0.0]  # percentage
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.9
@@ -96,6 +99,7 @@ class Go1RoughCfg(LeggedRobotCfg):
             # feet_air_time = 0.5
             torques = -0.00025
             dof_pos_limits = -10.0  # flat, poslim=-10, stairs, poslim=-100
+            base_height = -0.5
             # action_rate = -0.04
             # energy = -0.00008
 
@@ -107,6 +111,19 @@ class Go1RoughCfg(LeggedRobotCfg):
         pos_num_history_stack = 1
         vel_num_history_stack = 1
         action_num_history_stack = 1
+
+    class MSO:
+        class model_rand:
+            randomize_friction = True
+            friction_range = [0.5, 1.25]
+            randomize_base_mass = False
+            added_mass_range = [-1., 1.]
+            randomize_com = False
+            com_range = [-0.015, 0.015]  # [m]
+            # motor strength
+            randomize_motor_strength = True
+            p_gains_range = [-0.7, 0.0]  # percentage
+            d_gains_range = [-0.7, 0.0]  # percentage
 
 
 class Go1RoughCfgPPO(LeggedRobotCfgPPO):

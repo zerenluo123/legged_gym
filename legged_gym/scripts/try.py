@@ -1,9 +1,12 @@
 import numpy as np
 
-a = np.array([1, 2, 3, 4])
-b = np.array([1, 2, 3, 4])
+custom_bound_per_env_lower = -1
+custom_bound_per_env_upper = 1
+random_search = 10
+dim = 3
 
-for i in range(2):
-    b = np.array([1, 2, 3, 4])
-    a += b  # add rewards at current step
-print(a)
+
+x_random = np.random.uniform(custom_bound_per_env_lower, custom_bound_per_env_upper,
+                                         size=(random_search, dim))
+
+print(x_random)

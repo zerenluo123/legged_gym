@@ -128,6 +128,9 @@ class LeggedRobotCfg(BaseConfig):
         added_mass_range = [-1., 1.]
         randomize_limb_mass = False
         added_limb_percentage = [-0.2, 0.2]
+        randomize_motor_strength = False
+        p_gains_range = [-0.7, 0.0]  # percentage
+        d_gains_range = [-0.7, 0.0]  # percentage
         push_robots = True
         push_interval_s = 15
         max_push_vel_xy = 1.
@@ -224,8 +227,8 @@ class LeggedRobotCfg(BaseConfig):
             com_range = [-0.015, 0.015]  # [m]
             # motor strength
             randomize_motor_strength = True
-            p_gains_range = [-0.5, 0.5]  # percentage
-            d_gains_range = [-0.5, 0.5]  # percentage
+            p_gains_range = [-0.7, 0.0]  # percentage
+            d_gains_range = [-0.7, 0.0]  # percentage
 
 
 
@@ -262,7 +265,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 24  # per iteration
-        max_iterations = 500  # number of policy updates
+        max_iterations = 750  # number of policy updates
 
         # logging
         save_interval = 50  # check for potential saves every this many iterations
@@ -270,13 +273,13 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = 'Feb13_16-19-05_'  # -1 = last run
+        load_run = '20groups'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
 
     class MSO: # meta strategy optimization related
         optim_every_n = 30
         UP_dim = 3  # latent variable dimension
-        group_envs = 600
+        group_envs = 150
 
 

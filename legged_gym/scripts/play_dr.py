@@ -59,7 +59,6 @@ def play(args):
     env_cfg.domain_rand.randomize_motor_strength = False
 
     env_cfg.env.episode_length_s = 1e7 # no termination when reach max length
-    train_cfg.MSO.group_envs = 1
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -68,7 +67,7 @@ def play(args):
     set_env_params(env_cfg, env)
 
     # set evaluation scenario
-    scenario = scenarios.HorizontalLine(env, avg_vel=0.4, length=2)
+    scenario = scenarios.HorizontalLine(env, avg_vel=0.4, length=10)
 
     # load policy
     train_cfg.runner.resume = True  # set the mode to be evaluation
@@ -81,31 +80,10 @@ def play(args):
         export_policy_as_jit(ppo_runner.alg.actor_critic, path)
         print('Exported policy as jit script to: ', path)
 
-    # set optimizer
-    print("---------------- Pre-defined trajectory optimizer ----------------")
-    # create group MSO optimizer
-    mso_cfg_dict = class_to_dict(train_cfg.MSO)
-    optimizer = GroupUPMSOOptimizer(env, dim=train_cfg.MSO.UP_dim,
-                                    cfg=mso_cfg_dict, eval_num=1, test_steps=None,
-                                    normalized_range=True, scenario=scenario, device=env.device)  # sanity check: eval_num=100
-    optimizer.policy = policy
-
-    # optimize in the current environment
-    optimizer.reset()
-    optimizer.optimize(20)
-
-    xopt = optimizer.best_x
-    fopt = optimizer.best_f
-    str = f" \033[1m Optimized Embedding {xopt.squeeze()} \033[0m "
-    log_string = (f"""{'*' * 80}\n"""
-                  f"""{str.center(80, ' ')}\n\n""")
-    print(log_string)
-
-
     logger = Logger(env.dt)
     robot_index = 0  # which robot is used for logging
     joint_index = 5  # which joint is used for logging
-    stop_state_log = 500  # number of steps before plotting states
+    stop_state_log = 2000  # number of steps before plotting states
     stop_rew_log = env.max_episode_length + 1  # number of steps before print average episode rewards
     camera_position = np.array(env_cfg.viewer.pos, dtype=np.float64)
     camera_vel = np.array([1., 1., 0.])
@@ -116,16 +94,6 @@ def play(args):
     obs_dict = env.get_observations()
     obs = obs_dict['obs'].to(env.device)
 
-    # random sample the task embedding
-    # opt_embedding = torch.tensor([[-0.95587847 , 0.97683674 , 0.57258101]], device=env.device) # FR 80%
-    # opt_embedding = torch.tensor([[-0.32430236,  0.0501162,  -0.55062399]], device=env.device) # All 10%
-    # opt_embedding = torch.tensor([[0.38191605, 0.93617581, 0.28353129]], device=env.device) # All 10% bad
-
-    opt_embedding = torch.from_numpy(xopt).to(env.device).to(torch.float)
-
-    # init obs
-    obs = torch.cat([obs, opt_embedding], dim=-1)
-
     # evaluation of optimum
     scenario.reset()
     for i in range(10 * int(env.max_episode_length)):
@@ -133,7 +101,7 @@ def play(args):
 
         actions = policy(obs.detach())
         obs_dict, rews, dones, infos = env.step(actions.detach())
-        obs = torch.cat([obs_dict['obs'], opt_embedding], dim=-1)
+        obs = obs_dict['obs']
         if RECORD_FRAMES:
             if i % 2:
                 filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported',

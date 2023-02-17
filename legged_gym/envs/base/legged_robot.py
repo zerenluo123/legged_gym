@@ -76,6 +76,8 @@ class LeggedRobot(BaseTask):
         self._prepare_reward_function()
         self.init_done = True
 
+        self.resample_it = 0 # MSO resample env parameter iteration
+
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
 
@@ -317,6 +319,21 @@ class LeggedRobot(BaseTask):
                 r = self.dof_pos_limits[i, 1] - self.dof_pos_limits[i, 0]
                 self.dof_pos_limits[i, 0] = m - 0.5 * r * self.cfg.rewards.soft_dof_pos_limit
                 self.dof_pos_limits[i, 1] = m + 0.5 * r * self.cfg.rewards.soft_dof_pos_limit
+
+        # ! set gym's PD controller
+        for i in range(self.num_dof):
+            name = self.dof_names[i]
+            for dof_name in self.cfg.control.stiffness.keys():
+                if dof_name in name:
+                    props['driveMode'][i] = gymapi.DOF_MODE_POS
+                    props['stiffness'][i] = self.cfg.control.stiffness[dof_name]  # self.Kp
+                    props['damping'][i] = self.cfg.control.damping[dof_name]  # self.Kd
+
+                    if self.cfg.domain_rand.randomize_motor_strength:
+                        p_rng, d_rng = self.cfg.MSO.model_rand.p_gains_range, self.cfg.MSO.model_rand.d_gains_range
+                        props['stiffness'][i] *= (1 + np.random.uniform(p_rng[0], p_rng[1]))
+                        props['damping'][i] *= (1 + np.random.uniform(d_rng[0], d_rng[1]))
+
         return props
 
     def _process_rigid_body_props(self, props, env_id):
@@ -754,14 +771,14 @@ class LeggedRobot(BaseTask):
         for name in self.cfg.asset.terminate_after_contacts_on:
             termination_contact_names.extend([s for s in body_names if name in s])
 
-        # ! set gym's PD controller
-        for i in range(self.num_dof):
-            name = self.dof_names[i]
-            for dof_name in self.cfg.control.stiffness.keys():
-                if dof_name in name:
-                    dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
-                    dof_props_asset['stiffness'][i] = self.cfg.control.stiffness[dof_name] #self.Kp
-                    dof_props_asset['damping'][i] = self.cfg.control.damping[dof_name] #self.Kd
+        # # ! set gym's PD controller
+        # for i in range(self.num_dof):
+        #     name = self.dof_names[i]
+        #     for dof_name in self.cfg.control.stiffness.keys():
+        #         if dof_name in name:
+        #             dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
+        #             dof_props_asset['stiffness'][i] = self.cfg.control.stiffness[dof_name] #self.Kp
+        #             dof_props_asset['damping'][i] = self.cfg.control.damping[dof_name] #self.Kd
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)
@@ -804,7 +821,65 @@ class LeggedRobot(BaseTask):
         for i in range(len(termination_contact_names)):
             self.termination_contact_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], termination_contact_names[i])
 
-    def resample_env_params(self):
+    def resample_env_params(self, group_envs):
+        self.resample_it += 1
+        group_nums = int(self.num_envs / group_envs)
+
+        # log
+        width, pad = 80, 35
+        str = f" \033[1m Resample iteration {self.resample_it} \033[0m "
+        log_string = (f"""{'*' * width}\n"""
+                      f"""{str.center(width, ' ')}\n\n""")
+
+        # MASS ~ 1 dim
+        if self.cfg.MSO.model_rand.randomize_base_mass:
+            m_rng = self.cfg.MSO.model_rand.added_mass_range
+            m_group = np.random.uniform(m_rng[0], m_rng[1], size=(group_nums, 1))
+            self.m_all = np.ones(shape=(self.num_envs, 1), dtype=np.float32)  # row major matrix. dim: (env_nums, 1)
+            for i in range(group_nums):
+                self.m_all[i * group_envs : (i + 1) * group_envs] = m_group[i]
+
+            log_string += f"""{f'Delta Mass:'} {m_group}\n"""  # log
+
+        # MOTOR STRENGTH ~ 24 dims
+        if self.cfg.MSO.model_rand.randomize_motor_strength:
+            p_rng, d_rng = self.cfg.MSO.model_rand.p_gains_range, self.cfg.MSO.model_rand.d_gains_range
+            p_group, d_group = np.random.uniform(p_rng[0], p_rng[1], size=(group_nums, 12)), \
+                               np.random.uniform(d_rng[0], d_rng[1], size=(group_nums, 12))
+            self.p_all, self.d_all = np.ones(shape=(self.num_envs, 12), dtype=np.float32), \
+                           np.ones(shape=(self.num_envs, 12), dtype=np.float32)  # row major matrix. dim: (env_nums, 12)
+            for i in range(group_nums):
+                self.p_all[i * group_envs: (i + 1) * group_envs] = p_group[i]
+                self.d_all[i * group_envs: (i + 1) * group_envs] = d_group[i]
+
+            log_string += f"""{f'P Gain Percentage:'} {p_group}\n"""  # log
+            log_string += f"""{f'D Gain Percentage:'} {d_group}\n"""  # log
+
+        # FRICTION ~ 1 dim
+        if self.cfg.MSO.model_rand.randomize_friction:
+            f_rng = self.cfg.MSO.model_rand.friction_range
+            f_group = np.random.uniform(f_rng[0], f_rng[1], size=(group_nums, 1))
+            self.f_all = np.ones(shape=(self.num_envs, 1), dtype=np.float32)  # row major matrix. dim: (env_nums, 1)
+            for i in range(group_nums):
+                self.f_all[i * group_envs: (i + 1) * group_envs] = f_group[i]
+
+            log_string += f"""{f'Friction:'} {f_group}\n"""  # log
+
+        # COM -- x, y, z ~ 3 dims
+        if self.cfg.MSO.model_rand.randomize_com:
+            com_rng = self.cfg.MSO.model_rand.com_range
+            com_group = np.random.uniform(com_rng[0], com_rng[1], size=(group_nums, 3))
+            self.com_all = np.ones(shape=(self.num_envs, 3), dtype=np.float32)  # row major matrix. dim: (env_nums, 3)
+            for i in range(group_nums):
+                self.com_all[i * group_envs: (i + 1) * group_envs] = com_group[i]
+
+            log_string += f"""{f'COM Position:'} {com_group}\n"""  # log
+
+        print(log_string)
+
+
+
+    def set_env_params(self):
         for i in range(self.num_envs):
             # find env instance
             env = self.envs[i]
@@ -816,24 +891,20 @@ class LeggedRobot(BaseTask):
                 for i, p in enumerate(body_props):
                     if i == 0:  # randomize base mass
                         rng = self.cfg.MSO.model_rand.added_mass_range
-                        p.mass = self.base_mass + np.random.uniform(rng[0], rng[1])
+                        p.mass = self.base_mass + self.m_all[i]
                 self.gym.set_actor_rigid_body_properties(env, handle, body_props)
 
             # MOTOR STRENGTH ~ 24 dims
             if self.cfg.MSO.model_rand.randomize_motor_strength:
-                p_rng = self.cfg.MSO.model_rand.p_gains_range
-                d_rng = self.cfg.MSO.model_rand.d_gains_range
                 dof_props = self.gym.get_actor_dof_properties(env, handle)
                 # ! set gym's PD controller
-                for i in range(self.num_dof):
-                    name = self.dof_names[i]
+                for i_dof in range(self.num_dof):
+                    name = self.dof_names[i_dof]
                     for dof_name in self.cfg.control.stiffness.keys():
                         if dof_name in name:
-                            dof_props['driveMode'][i] = gymapi.DOF_MODE_POS
-                            dof_props['stiffness'][i] = self.cfg.control.stiffness[dof_name] * (1 + np.random.uniform(p_rng[0], p_rng[1]))  # self.Kp
-                            dof_props['damping'][i] = self.cfg.control.damping[dof_name] * (1 + np.random.uniform(d_rng[0], d_rng[1]))  # self.Kd
-                # print("p gain ", dof_props['stiffness'])
-                # print("d gain ", dof_props['damping'])
+                            dof_props['driveMode'][i_dof] = gymapi.DOF_MODE_POS
+                            dof_props['stiffness'][i_dof] = self.cfg.control.stiffness[dof_name] * (1 + self.p_all[i, i_dof])  # self.Kp
+                            dof_props['damping'][i_dof] = self.cfg.control.damping[dof_name] * (1 + self.d_all[i, i_dof])  # self.Kd
                 self.gym.set_actor_dof_properties(env, handle, dof_props)
 
             # FRICTION ~ 1 dim
@@ -841,15 +912,13 @@ class LeggedRobot(BaseTask):
                 rand_friction = np.random.uniform(self.cfg.MSO.model_rand.friction_range[0], self.cfg.MSO.model_rand.friction_range[1])
                 rigid_shape_props = self.gym.get_actor_rigid_shape_properties(env, handle)
                 for p in rigid_shape_props:
-                    p.friction = rand_friction
+                    p.friction = self.f_all[i]
                 self.gym.set_actor_rigid_shape_properties(env, handle, rigid_shape_props)
 
-            # COM ~ 3 dims
+            # COM -- x, y, z ~ 3 dims
             if self.cfg.MSO.model_rand.randomize_com:
                 body_props = self.gym.get_actor_rigid_body_properties(env, handle)
-                obj_com = [np.random.uniform(self.cfg.MSO.model_rand.com_range[0], self.cfg.MSO.model_rand.com_range[1]),
-                           np.random.uniform(self.cfg.MSO.model_rand.com_range[0], self.cfg.MSO.model_rand.com_range[1]),
-                           np.random.uniform(self.cfg.MSO.model_rand.com_range[0], self.cfg.MSO.model_rand.com_range[1])]
+                obj_com = self.com_all[i]
                 body_props[0].com.x, body_props[0].com.y, body_props[0].com.z = obj_com
                 self.gym.set_actor_rigid_body_properties(env, handle, body_props)
 

@@ -39,7 +39,8 @@ def play(args):
 
         if i % train_cfg.MSO.optim_every_n == 0:
             print("==== Construct task set ======")
-            env.resample_env_params()
+            env.resample_env_params(train_cfg.MSO.group_envs)
+            env.set_env_params()
 
 
         osc1 = 1.3 * np.sin(i / 20)  # sinusoidal function
