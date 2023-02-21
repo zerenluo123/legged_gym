@@ -48,6 +48,8 @@ from legged_gym.utils.math import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_fl
 from legged_gym.utils.helpers import class_to_dict
 from .legged_robot_config import LeggedRobotCfg
 
+from glob import glob
+
 class LeggedRobot(BaseTask):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         """ Parses the provided config file,
@@ -733,10 +735,6 @@ class LeggedRobot(BaseTask):
                 2.3 create actor with these properties and add them to the env
              3. Store indices of different bodies of the robot
         """
-        asset_path = self.cfg.asset.file.format(LEGGED_GYM_ROOT_DIR=LEGGED_GYM_ROOT_DIR)
-        asset_root = os.path.dirname(asset_path)
-        asset_file = os.path.basename(asset_path)
-
         asset_options = gymapi.AssetOptions()
         asset_options.default_dof_drive_mode = self.cfg.asset.default_dof_drive_mode
         asset_options.collapse_fixed_joints = self.cfg.asset.collapse_fixed_joints
@@ -751,12 +749,21 @@ class LeggedRobot(BaseTask):
         asset_options.armature = self.cfg.asset.armature
         asset_options.thickness = self.cfg.asset.thickness
         asset_options.disable_gravity = self.cfg.asset.disable_gravity
+        self.asset_options = asset_options
 
-        robot_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
+
+        self.asset_path = self.cfg.asset.file.format(LEGGED_GYM_ROOT_DIR=LEGGED_GYM_ROOT_DIR)
+        self.asset_root = os.path.dirname(self.asset_path)
+        self.asset_file = os.path.basename(self.asset_path)
+
+        # create robot asset list
+        self._create_robots_asset()
+
+        # robot_asset = self.gym.load_asset(self.sim, self.asset_root, self.asset_file, asset_options)
+
+        robot_asset = self.robot_asset_list[0]
         self.num_dof = self.gym.get_asset_dof_count(robot_asset)
         self.num_bodies = self.gym.get_asset_rigid_body_count(robot_asset)
-        dof_props_asset = self.gym.get_asset_dof_properties(robot_asset)
-        rigid_shape_props_asset = self.gym.get_asset_rigid_shape_properties(robot_asset)
 
         # save body names from the asset
         body_names = self.gym.get_asset_rigid_body_names(robot_asset)
@@ -770,15 +777,6 @@ class LeggedRobot(BaseTask):
         termination_contact_names = []
         for name in self.cfg.asset.terminate_after_contacts_on:
             termination_contact_names.extend([s for s in body_names if name in s])
-
-        # # ! set gym's PD controller
-        # for i in range(self.num_dof):
-        #     name = self.dof_names[i]
-        #     for dof_name in self.cfg.control.stiffness.keys():
-        #         if dof_name in name:
-        #             dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
-        #             dof_props_asset['stiffness'][i] = self.cfg.control.stiffness[dof_name] #self.Kp
-        #             dof_props_asset['damping'][i] = self.cfg.control.damping[dof_name] #self.Kd
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)
@@ -797,9 +795,18 @@ class LeggedRobot(BaseTask):
             pos[:2] += torch_rand_float(-1., 1., (2,1), device=self.device).squeeze(1)
             start_pose.p = gymapi.Vec3(*pos)
 
+
+            # TODO: get asset from list
+            robot_type_id = np.random.choice(len(self.robot_type_list))
+            robot_asset_rand = self.robot_asset_list[robot_type_id]
+
+            rigid_shape_props_asset = self.gym.get_asset_rigid_shape_properties(robot_asset_rand)
             rigid_shape_props = self._process_rigid_shape_props(rigid_shape_props_asset, i)
-            self.gym.set_asset_rigid_shape_properties(robot_asset, rigid_shape_props)
-            actor_handle = self.gym.create_actor(env_handle, robot_asset, start_pose, self.cfg.asset.name, i, self.cfg.asset.self_collisions, 0)
+            self.gym.set_asset_rigid_shape_properties(robot_asset_rand, rigid_shape_props)
+
+            actor_handle = self.gym.create_actor(env_handle, robot_asset_rand, start_pose, self.cfg.asset.name, i, self.cfg.asset.self_collisions, 0)
+
+            dof_props_asset = self.gym.get_asset_dof_properties(robot_asset_rand)
             dof_props = self._process_dof_props(dof_props_asset, i)
             self.gym.set_actor_dof_properties(env_handle, actor_handle, dof_props)
             self.gym.enable_actor_dof_force_sensors(env_handle, actor_handle)  # Note: important to read torque !!!!
@@ -820,6 +827,25 @@ class LeggedRobot(BaseTask):
         self.termination_contact_indices = torch.zeros(len(termination_contact_names), dtype=torch.long, device=self.device, requires_grad=False)
         for i in range(len(termination_contact_names)):
             self.termination_contact_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], termination_contact_names[i])
+
+    def _create_robots_asset(self):
+        self.robot_type_list = []
+        self.asset_files_dict = {}
+        robots = sorted(glob(os.path.join(self.asset_root, 'default', '*.urdf')))
+        robot_list = [f'robot_{i}' for i in range(len(robots))]
+        self.robot_type_list += robot_list
+        for i, name in enumerate(robots):
+            self.asset_files_dict[f'robot_{i}'] = name.replace(self.asset_root, '')
+
+        print('------- Asset file dict -------')
+        print(self.asset_files_dict)
+
+        # load robots asset
+        self.robot_asset_list = []
+        for robot_type in self.robot_type_list:
+            robot_asset_file = self.asset_files_dict[robot_type]
+            robot_asset = self.gym.load_asset(self.sim, self.asset_root, robot_asset_file, self.asset_options)
+            self.robot_asset_list.append(robot_asset)
 
     def resample_env_params(self, group_envs):
         self.resample_it += 1

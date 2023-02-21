@@ -280,6 +280,6 @@ class LeggedRobotCfgPPO(BaseConfig):
     class MSO: # meta strategy optimization related
         optim_every_n = 30
         UP_dim = 3  # latent variable dimension
-        group_envs = 150
+        group_envs = 5
 
 
