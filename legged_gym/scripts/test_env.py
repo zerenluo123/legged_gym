@@ -22,7 +22,9 @@ def play(args):
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-    obs = env.get_observations()
+    env.reset()
+    obs_dict = env.get_observations()
+    obs = obs_dict['obs'].to(env.device)
 
     # TODO: hand-crafted policy
 
@@ -34,8 +36,8 @@ def play(args):
 
     for i in range(10 * int(env.max_episode_length)):
         # Sets the pose to be fixed at origin. equivalent to hang the robot
-        fixed_pose = torch.tensor([[0.0, 0.0, 0.4, 0., -0., -0., 0.5]], dtype=torch.float)
-        env._set_body_pose_to_actors_fixed_at_origin(fixed_pose)
+        # fixed_pose = torch.tensor([[0.0, 0.0, 0.4, 0., -0., -0., 0.5]], dtype=torch.float)
+        # env._set_body_pose_to_actors_fixed_at_origin(fixed_pose)
 
 
         osc1 = 0.5 * np.sin(i / 20)  # sinusoidal function
@@ -43,7 +45,8 @@ def play(args):
                                  0, osc1, 0,
                                  0, osc1, 0,
                                  0, osc1, 0]], dtype=torch.float)
-        obs, _, rews, dones, infos = env.step(actions.detach())
+        obs_dict, rews, dones, infos = env.step(actions.detach())
+        obs = obs_dict['obs'].to(env.device)
 
         if i < stop_state_log:
             logger.log_states(

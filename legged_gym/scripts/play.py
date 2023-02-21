@@ -103,16 +103,16 @@ def play(args):
         # plt.plot(np.arange(gazebo_pos.shape[0]), gazebo_pos[:, joint_index])
         # plt.show()
 
-    # random sample the task embedding
-    sample_task_embeddings = torch_rand_float(-1., 1., (env.num_envs, 3), device=env.device)
-    # init obs
-    obs = torch.cat([obs, sample_task_embeddings], dim=-1)
+    # # random sample the task embedding
+    # sample_task_embeddings = torch_rand_float(-1., 1., (env.num_envs, 3), device=env.device)
+    # # init obs
+    # obs = torch.cat([obs, sample_task_embeddings], dim=-1)
 
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
         obs_dict, rews, dones, infos = env.step(actions.detach())
-        obs = torch.cat([obs_dict['obs'], sample_task_embeddings], dim=-1)
+        obs = obs_dict['obs'].to(env.device)
         if RECORD_FRAMES:
             if i % 2:
                 filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'frames', f"{img_idx}.png")

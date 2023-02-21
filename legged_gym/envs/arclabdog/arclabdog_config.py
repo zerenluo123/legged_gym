@@ -31,7 +31,7 @@
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 
-class Go1RoughCfg(LeggedRobotCfg):
+class ArclabdogRoughCfg(LeggedRobotCfg):
     class env(LeggedRobotCfg.env):    # comment if use visual
         num_observations = 49
 
@@ -67,31 +67,29 @@ class Go1RoughCfg(LeggedRobotCfg):
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
-        use_actuator_network = True
-        actuator_net_file = "{LEGGED_GYM_ROOT_DIR}/resources/actuator_nets/go1_net.pt"
 
     class asset(LeggedRobotCfg.asset):
-        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go1/urdf/go1.urdf'
-        name = "go1"
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/arclabdog/urdf/arclabdog_simp.urdf'
+        name = "arclabdog"
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf"]
-        terminate_after_contacts_on = ["base"]
+        terminate_after_contacts_on = ["trunk"]
         self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
 
     class domain_rand(LeggedRobotCfg.domain_rand):
-        randomize_friction = False
+        randomize_friction = True
         friction_range = [0.5, 1.25]
         randomize_base_mass = False
         added_mass_range = [-1., 1.]
         randomize_limb_mass = False
         added_limb_percentage = [-0.2, 0.2]
-        randomize_motor_strength = False
+        randomize_motor_strength = True
         p_gains_range = [-0.7, 0.0]  # percentage
         d_gains_range = [-0.7, 0.0]  # percentage
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.2
+        base_height_target = 0.3
         terminate_base_height = False
 
         class scales(LeggedRobotCfg.rewards.scales):
@@ -126,10 +124,10 @@ class Go1RoughCfg(LeggedRobotCfg):
             d_gains_range = [-0.7, 0.0]  # percentage
 
 
-class Go1RoughCfgPPO(LeggedRobotCfgPPO):
+class ArclabdogRoughCfgPPO(LeggedRobotCfgPPO):
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01
 
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ''
-        experiment_name = 'go1'
+        experiment_name = 'arclabdog'

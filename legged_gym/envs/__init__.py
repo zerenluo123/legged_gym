@@ -43,6 +43,8 @@ from .go1.go1_config import Go1RoughCfgPPO, Go1RoughCfg
 from .go1.go1 import Go1
 from .aliengo.aliengo_config import AliengoRoughCfgPPO, AliengoRoughCfg
 from .aliengo.aliengo import Aliengo
+from .arclabdog.arclabdog_config import ArclabdogRoughCfgPPO, ArclabdogRoughCfg
+from .arclabdog.arclabdog import Arclabdog
 
 
 import os
@@ -57,4 +59,5 @@ task_registry.register( "cassie", Cassie, CassieRoughCfg(), CassieRoughCfgPPO() 
 task_registry.register( "a1_src", LeggedRobot, A1SrcRoughCfg(), A1SrcRoughCfgPPO() )
 task_registry.register( "go1", Go1, Go1RoughCfg(), Go1RoughCfgPPO() )
 task_registry.register( "aliengo", Aliengo, AliengoRoughCfg(), AliengoRoughCfgPPO() )
+task_registry.register( "arclabdog", Arclabdog, ArclabdogRoughCfg(), ArclabdogRoughCfgPPO() )
 
