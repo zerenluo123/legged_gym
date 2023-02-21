@@ -800,15 +800,19 @@ class LeggedRobot(BaseTask):
             robot_type_id = np.random.choice(len(self.robot_type_list))
             robot_asset_rand = self.robot_asset_list[robot_type_id]
 
+            # rigid shape properties
             rigid_shape_props_asset = self.gym.get_asset_rigid_shape_properties(robot_asset_rand)
             rigid_shape_props = self._process_rigid_shape_props(rigid_shape_props_asset, i)
             self.gym.set_asset_rigid_shape_properties(robot_asset_rand, rigid_shape_props)
 
+            # create current actor handle
             actor_handle = self.gym.create_actor(env_handle, robot_asset_rand, start_pose, self.cfg.asset.name, i, self.cfg.asset.self_collisions, 0)
 
+            # dof properties
             dof_props_asset = self.gym.get_asset_dof_properties(robot_asset_rand)
             dof_props = self._process_dof_props(dof_props_asset, i)
             self.gym.set_actor_dof_properties(env_handle, actor_handle, dof_props)
+
             self.gym.enable_actor_dof_force_sensors(env_handle, actor_handle)  # Note: important to read torque !!!!
             body_props = self.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
             body_props = self._process_rigid_body_props(body_props, i)

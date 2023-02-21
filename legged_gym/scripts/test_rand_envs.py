@@ -22,7 +22,9 @@ def play(args):
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-    obs = env.get_observations()
+    env.reset()
+    obs_dict = env.get_observations()
+    obs = obs_dict['obs'].to(env.device)
 
     # TODO: hand-crafted policy
 
@@ -37,19 +39,20 @@ def play(args):
         # fixed_pose = torch.tensor([[0.0, 0.0, 0.4, 0., -0., -0., 0.5]], dtype=torch.float)
         # env._set_body_pose_to_actors_fixed_at_origin(fixed_pose)
 
-        if i % train_cfg.MSO.optim_every_n == 0:
-            print("==== Construct task set ======")
-            env.resample_env_params(train_cfg.MSO.group_envs)
-            env.set_env_params()
+        # if i % train_cfg.MSO.optim_every_n == 0:
+        #     print("==== Construct task set ======")
+        #     env.resample_env_params(train_cfg.MSO.group_envs)
+        #     env.set_env_params()
 
 
-        osc1 = 1.3 * np.sin(i / 20)  # sinusoidal function
+        osc1 = 0.5 * np.sin(i / 20)  # sinusoidal function
         actions = torch.tensor([[0, 0, osc1,
                                  0, 0, osc1,
                                  0, 0, osc1,
                                  0, 0, osc1]], dtype=torch.float)
         actions = actions.repeat(env.num_envs, 1)
-        obs, _, rews, dones, infos = env.step(actions.detach())
+        obs_dict, rews, dones, infos = env.step(actions.detach())
+        obs = obs_dict['obs'].to(env.device)
 
         if i < stop_state_log:
             logger.log_states(
