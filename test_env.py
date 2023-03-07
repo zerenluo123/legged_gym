@@ -33,9 +33,9 @@ def play(args):
     stop_rew_log = env.max_episode_length + 1  # number of steps before print average episode rewards
 
     for i in range(10 * int(env.max_episode_length)):
-        # Sets the pose to be fixed at origin. equivalent to hang the robot
-        fixed_pose = torch.tensor([[0.0, 0.0, 0.4, 0., -0., -0., 0.5]], dtype=torch.float)
-        env._set_body_pose_to_actors_fixed_at_origin(fixed_pose)
+        # # Sets the pose to be fixed at origin. equivalent to hang the robot
+        # fixed_pose = torch.tensor([[0.0, 0.0, 0.4, 0., -0., -0., 0.5]], dtype=torch.float)
+        # env._set_body_pose_to_actors_fixed_at_origin(fixed_pose)
 
 
         osc1 = 0.5 * np.sin(i / 20)  # sinusoidal function

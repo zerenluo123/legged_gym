@@ -259,3 +259,43 @@ class LeggedRobotCfgPPO(BaseConfig):
         load_run = '49ob_contact'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
+
+    class RMA:
+        rl_device = 'cuda:0'
+        test = False
+        class PPO:
+            # TODO: sort out
+            normalize_input = True
+            normalize_value = True
+            normalize_advantage = True
+            value_bootstrap = True
+            gamma = 0.99
+            tau = 0.95  # same as lam
+            e_clip = 0.2
+            entropy_coeff = 0.001  # same as entropy_coef
+            learning_rate = 6.e-4  # overwritten by adaptive lr_schedule
+            lr_schedule = 'adaptive'
+            kl_threshold = 0.008  # target kl for adaptive lr, same as desired_kl
+            truncate_grads = True
+            grad_norm = 1.
+            horizon_length = 24
+            minibatch_size = 16384
+            mini_epochs = 5
+            critic_coef = 2
+            clip_value = True
+            bounds_loss_coef = 0.0001
+
+            save_best_after = 0
+            save_frequency = 50
+            max_agent_steps = 500000000
+        class network:
+          class mlp:
+            units = [512, 256, 128]
+          class priv_mlp:
+            units = [256, 128, 8]
+        class adapt_module:
+            # hora setting
+            priv_info = False
+            priv_info_dim = 5
+            priv_info_embed_dim = 8
+            proprio_adapt = False

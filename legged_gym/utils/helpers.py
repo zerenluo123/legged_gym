@@ -164,6 +164,9 @@ def get_args():
         {"name": "--num_envs", "type": int, "help": "Number of environments to create. Overrides config file if provided."},
         {"name": "--seed", "type": int, "help": "Random seed. Overrides config file if provided."},
         {"name": "--max_iterations", "type": int, "help": "Maximum number of training iterations. Overrides config file if provided."},
+        {"name": "--output_name", "type": str, "default": "debug", "help": "where you save and load the nn policy"},
+        {"name": "--test", "action": "store_true", "default": False, "help": "whether or not test the policy"},
+        {"name": "--algo", "type": str, "default": "PPO", "help": "which algorithm used to train the policy, PPO or padapt"},
     ]
     # parse arguments
     args = gymutil.parse_arguments(

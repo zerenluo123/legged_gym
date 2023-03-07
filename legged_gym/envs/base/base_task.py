@@ -34,6 +34,10 @@ from isaacgym import gymutil
 import numpy as np
 import torch
 
+import gym
+from gym import spaces
+
+
 # Base class for RL tasks
 class BaseTask():
 
@@ -99,6 +103,9 @@ class BaseTask():
             self.gym.subscribe_viewer_keyboard_event(
                 self.viewer, gymapi.KEY_V, "toggle_viewer_sync")
 
+        self.obs_space = spaces.Box(np.ones(self.num_obs, dtype=np.float32) * -np.Inf, np.ones(self.num_obs, dtype=np.float32) * np.Inf)
+        self.act_space = spaces.Box(np.ones(self.num_actions, dtype=np.float32) * -1., np.ones(self.num_actions, dtype=np.float32) * 1.)
+
     def get_observations(self):
         return self.obs_buf
     
@@ -117,6 +124,16 @@ class BaseTask():
 
     def step(self, actions):
         raise NotImplementedError
+
+    @property
+    def observation_space(self) -> gym.Space:
+        """Get the environment's observation space."""
+        return self.obs_space
+
+    @property
+    def action_space(self) -> gym.Space:
+        """Get the environment's action space."""
+        return self.act_space
 
     def render(self, sync_frame_time=True):
         if self.viewer:
