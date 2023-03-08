@@ -39,29 +39,23 @@ def train(args):
     # set numpy formatting for printing only
     set_np_formatting()
 
-    cprint('Start Building the Environment', 'green', attrs=['bold'])
-    env, env_cfg = task_registry.make_env(name=args.task, args=args)
-
     # if no args passed get command line arguments
     if args is None:
         args = get_args()
     # if config files are passed use them, otherwise load from the name
     # load config files
-    _, train_cfg = task_registry.get_cfgs(args.task)
+    env_cfg, train_cfg = task_registry.get_cfgs(args.task)
     # override cfg from args (if specified)
-    _, train_cfg = update_cfg_from_args(None, train_cfg, args)
+    env_cfg, train_cfg = update_cfg_from_args(env_cfg, train_cfg, args)
 
-    log_root = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name)
-    log_dir = os.path.join(log_root, datetime.now().strftime('%b%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
+    if args.test:
+        # fixed velocity direction evaluation (make sure the value is within the training range)
+        env_cfg.commands.ranges.lin_vel_x = [args.lin_vel_x, args.lin_vel_x]
+        env_cfg.commands.ranges.lin_vel_y = [args.lin_vel_y, args.lin_vel_y]
+        env_cfg.commands.ranges.heading = [args.heading, args.heading]
 
-    if not train_cfg.runner.resume:
-        # save cfg file in the checkpoint dir
-        os.makedirs(log_dir)
-        save_item = os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'envs', 'base', 'legged_robot_config.py')
-        copyfile(save_item, log_dir + '/train_cfg_general.py')
-
-        save_item = os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'envs', args.task, args.task + '_config.py')
-        copyfile(save_item, log_dir + '/train_cfg_robot.py')
+    cprint('Start Building the Environment', 'green', attrs=['bold'])
+    env, env_cfg = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
 
     train_cfg_dict = class_to_dict(train_cfg)
 
@@ -70,20 +64,13 @@ def train(args):
     RMA_ppo_config = train_cfg_dict['RMA']
     RMA_ppo_config['test'] = True if args.test else False
     agent = eval(args.algo)(env, output_dif, train_config=RMA_ppo_config)
-    # if args.test:
-    #     print("------------ test -------------")
-    #     # agent.restore_test(config.train.load_path)
-    #     # agent.test()
 
-    runner = OnPolicyRunner(env, train_cfg_dict, log_dir, device=args.rl_device)
     # save resume path before creating a new log_dir
     if args.test:
         cprint('Start Testing the Policy', 'green', attrs=['bold'])
         # load previously trained model
-        resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run,
-                                    checkpoint=train_cfg.runner.checkpoint)
-        print(f"Loading model from: {resume_path}")
-        runner.load(resume_path)
+        agent.restore_test(args.checkpoint_model)
+        agent.test()
     else:
         cprint('Start Training the Policy', 'green', attrs=['bold'])
         # check whether execute train by mistake:
@@ -91,7 +78,14 @@ def train(args):
             'outputs', args.output_name,
             'stage1_nn' if args.algo == 'PPO' else 'stage2_nn', 'best.pth'
         )
-        runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=True)
+        if os.path.exists(best_ckpt_path):
+            user_input = input(
+                f'are you intentionally going to overwrite files in {args.output_name}, type yes to continue \n')
+            if user_input != 'yes':
+                exit()
+
+        agent.restore_train(args.checkpoint_model) # load trained network from the else where. normally not useful
+        agent.train()
 
 if __name__ == '__main__':
     args = get_args()

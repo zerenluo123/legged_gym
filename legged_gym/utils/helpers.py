@@ -167,6 +167,13 @@ def get_args():
         {"name": "--output_name", "type": str, "default": "debug", "help": "where you save and load the nn policy"},
         {"name": "--test", "action": "store_true", "default": False, "help": "whether or not test the policy"},
         {"name": "--algo", "type": str, "default": "PPO", "help": "which algorithm used to train the policy, PPO or padapt"},
+        {"name": "--checkpoint_model", "type": str, "default": None, "help": "which policy model to load from"},
+
+        # test policy
+        {"name": "--lin_vel_x", "type": float, "help": "linear velocity x."},
+        {"name": "--lin_vel_y", "type": float, "help": "linear velocity y."},
+        {"name": "--heading", "type": float, "help": "heading."},
+
     ]
     # parse arguments
     args = gymutil.parse_arguments(

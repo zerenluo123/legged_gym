@@ -63,11 +63,27 @@ class LeggedRobot(BaseTask):
             headless (bool): Run without rendering if True
         """
         self.cfg = cfg
+
+        # before calling init in VecTask, need to do
+        # 1. setup randomization
+        self._setup_domain_rand_config(self.cfg.RMA.randomization)
+        # 2. setup privileged information
+        self._setup_priv_option_config(self.cfg.RMA.privInfo)
+
         self.sim_params = sim_params
         self.height_samples = None
         self.debug_viz = False
         self.init_done = False
         self._parse_cfg(self.cfg)
+
+        # ************************ RMA specific ************************
+        # self.evaluate = self.cfg['on_evaluation']
+        self.priv_info_dict = {
+            'mass': (0, 1),
+            'friction': (1, 2),
+            'com': (2, 5),
+        }
+
         super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless)
 
         if not self.headless:
@@ -102,9 +118,12 @@ class LeggedRobot(BaseTask):
         # return clipped obs, clipped states (None), rewards, dones and infos
         clip_obs = self.cfg.normalization.clip_observations
         self.obs_buf = torch.clip(self.obs_buf, -clip_obs, clip_obs)
-        if self.privileged_obs_buf is not None:
-            self.privileged_obs_buf = torch.clip(self.privileged_obs_buf, -clip_obs, clip_obs)
-        return self.obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
+
+        self.obs_dict['obs'] = self.obs_buf
+        self.obs_dict['priv_info'] = self.priv_info_buf.to(self.device)
+        self.obs_dict['proprio_hist'] = self.proprio_hist_buf.to(self.device)
+
+        return self.obs_dict, self.rew_buf, self.reset_buf, self.extras
 
     def post_physics_step(self):
         """ check terminations, compute observations and rewards
@@ -132,7 +151,6 @@ class LeggedRobot(BaseTask):
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
 
-        self.update_history()  # update the history first, push the history state to the front
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
 
         self.last_actions[:] = self.actions[:]
@@ -199,6 +217,10 @@ class LeggedRobot(BaseTask):
         if self.cfg.env.send_timeouts:
             self.extras["time_outs"] = self.time_out_buf
 
+        # RMA related reset buffer
+        # self.obs_buf[env_ids] = 0 # TODO: need to reset obs buffer?
+        self.proprio_hist_buf[env_ids] = 0
+
     def compute_reward(self):
         """ Compute rewards
             Calls each reward function which had a non-zero scale (processed in self._prepare_reward_function())
@@ -221,18 +243,9 @@ class LeggedRobot(BaseTask):
     def compute_observations(self):
         """ Computes observations
         """
-        # self.obs_buf = torch.cat((self.base_lin_vel * self.obs_scales.lin_vel,
-        #                           self.base_ang_vel * self.obs_scales.ang_vel,
-        #                           self.projected_gravity,
-        #                           self.commands[:, :3] * self.commands_scale,
-        #                           (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
-        #                           self.dof_vel * self.obs_scales.dof_vel,
-        #                           self.actions,
-        #                           self.dof_pos_hist[:, :(self.pos_num_hist - 1) * self.num_dof] * self.obs_scales.dof_pos,
-        #                           self.dof_vel_hist[:, :(self.vel_num_hist - 1) * self.num_dof] * self.obs_scales.dof_vel,
-        #                           self.dof_action_hist[:, :(self.action_num_hist - 1) * self.num_dof] * 1.0
-        #                           # no scale with action
-        #                           ), dim=-1)
+        # deal with normal observation, do sliding window
+        prev_obs_buf = self.obs_buf_lag_history[:, 1:].clone()
+
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         self.obs_buf = torch.cat((self.base_ang_vel * self.obs_scales.ang_vel,
                                   self.projected_gravity,
@@ -253,6 +266,17 @@ class LeggedRobot(BaseTask):
         # add noise if needed
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
+
+        # concatenate to get full history
+        cur_obs_buf = self.obs_buf.clone().unsqueeze(1)
+        self.obs_buf_lag_history[:] = torch.cat([prev_obs_buf, cur_obs_buf], dim=1)
+
+        # refill the initialized buffers
+        # if reset, then the history buffer are all filled with the current observation
+        at_reset_env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
+        self.obs_buf_lag_history[at_reset_env_ids, :, :] = self.obs_buf[at_reset_env_ids].unsqueeze(1)
+
+        self.proprio_hist_buf[:] = self.obs_buf_lag_history[:, -self.prop_hist_len:].clone()
 
     def create_sim(self):
         """ Creates simulation, terrain and evironments
@@ -420,25 +444,6 @@ class LeggedRobot(BaseTask):
         target_poses = actions_scaled + self.default_dof_pos
         return torch.clip(target_poses, self.dof_pos_limits[:, 0], self.dof_pos_limits[:, 1])
 
-    def update_history(self):
-        # ! fill the pos history buffer
-        if self.pos_num_hist > 1:
-            histoty_temp_mem = self.dof_pos_hist.clone()
-            self.dof_pos_hist[:, :(self.pos_num_hist - 1) * self.num_dof] = histoty_temp_mem[:,-(self.pos_num_hist - 1) * self.num_dof:]
-        self.dof_pos_hist[:, -self.num_dof:] = self.dof_pos - self.default_dof_pos
-
-        # ! fill the vel history buffer
-        if self.vel_num_hist > 1:
-            histoty_temp_mem = self.dof_vel_hist.clone()
-            self.dof_vel_hist[:, :(self.vel_num_hist - 1) * self.num_dof] = histoty_temp_mem[:,-(self.vel_num_hist - 1) * self.num_dof:]
-        self.dof_vel_hist[:, -self.num_dof:] = self.dof_vel
-
-        # ! fill the action history buffer
-        if self.action_num_hist > 1:
-            histoty_temp_mem = self.dof_action_hist.clone()
-            self.dof_action_hist[:, :(self.action_num_hist - 1) * self.num_dof] = histoty_temp_mem[:, -(self.action_num_hist - 1) * self.num_dof:]
-        self.dof_action_hist[:, -self.num_dof:] = self.actions
-
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
         Positions are randomly selected within 0.5:1.5 x default positions.
@@ -535,18 +540,6 @@ class LeggedRobot(BaseTask):
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
-        # noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
-        # noise_vec[3:6] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
-        # noise_vec[6:9] = noise_scales.gravity * noise_level
-        # noise_vec[9:12] = 0. # commands
-        # noise_vec[12:24] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        # noise_vec[24:36] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        # noise_vec[36:48] = 0. # previous actions
-        # noise_vec[48:48 + 12 * (self.pos_num_hist - 1)] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        # noise_vec[48 + 12 * (self.pos_num_hist - 1):48 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1)] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        # noise_vec[48 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1):48 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1 + self.action_num_hist - 1)] = 0.
-        # print("&&&&&&&&& noise_vec shape2: ", noise_vec.shape)
-
 
         noise_vec[:3] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
         noise_vec[3:6] = noise_scales.gravity * noise_level
@@ -648,6 +641,9 @@ class LeggedRobot(BaseTask):
                 if self.cfg.control.control_type in ["P", "V"]:
                     print(f"PD gain of joint {name} were not defined, setting them to zero")
         self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
+
+        # RMA specific buffer
+        self._allocate_task_buffer(self.num_envs)
 
     def _prepare_reward_function(self):
         """ Prepares a list of reward functions, whcih will be called to compute the total reward.
@@ -1051,3 +1047,65 @@ class LeggedRobot(BaseTask):
         self.commands[:, 1] = vy
         self.commands[:, 2] = vang
         # self.commands[:, 3] = heading
+
+
+    # ************************ RMA specific ************************
+    def reset(self):
+        super().reset()
+        self.obs_dict['priv_info'] = self.priv_info_buf.to(self.device)
+        self.obs_dict['proprio_hist'] = self.proprio_hist_buf.to(self.device)
+        return self.obs_dict
+
+    # def step(self, actions):
+    #     super().step(actions)
+    #     self.obs_dict['priv_info'] = self.priv_info_buf.to(self.device)
+    #     self.obs_dict['proprio_hist'] = self.proprio_hist_buf.to(self.device)
+    #     return self.obs_dict, self.rew_buf, self.reset_buf, self.extras
+
+    def _setup_domain_rand_config(self, rand_config):
+        self.randomize_mass = rand_config.randomizeMass
+        self.randomize_mass_lower = rand_config.randomizeMassLower
+        self.randomize_mass_upper = rand_config.randomizeMassUpper
+        self.randomize_com = rand_config.randomizeCOM
+        self.randomize_com_lower = rand_config.randomizeCOMLower
+        self.randomize_com_upper = rand_config.randomizeCOMUpper
+        self.randomize_friction = rand_config.randomizeFriction
+        self.randomize_friction_lower = rand_config.randomizeFrictionLower
+        self.randomize_friction_upper = rand_config.randomizeFrictionUpper
+        self.randomize_pd_gains = rand_config.randomizePDGains
+        self.randomize_p_gain_lower = rand_config.randomizePGainLower
+        self.randomize_p_gain_upper = rand_config.randomizePGainUpper
+        self.randomize_d_gain_lower = rand_config.randomizeDGainLower
+        self.randomize_d_gain_upper = rand_config.randomizeDGainUpper
+        self.joint_noise_scale = rand_config.jointNoiseScale
+
+    def _setup_priv_option_config(self, p_config):
+        self.enable_priv_mass = p_config.enableMass
+        self.enable_priv_com = p_config.enableCOM
+        self.enable_priv_friction = p_config.enableFriction
+
+    def _update_priv_buf(self, env_id, name, value, lower=None, upper=None):
+        # normalize to -1, 1
+        s, e = self.priv_info_dict[name]
+        if eval(f'self.enable_priv_{name}'):
+            if type(value) is list:
+                value = to_torch(value, dtype=torch.float, device=self.device)
+            if type(lower) is list or upper is list:
+                lower = to_torch(lower, dtype=torch.float, device=self.device)
+                upper = to_torch(upper, dtype=torch.float, device=self.device)
+            if lower is not None and upper is not None:
+                value = (2.0 * value - upper - lower) / (upper - lower)
+            self.priv_info_buf[env_id, s:e] = value
+        else:
+            self.priv_info_buf[env_id, s:e] = 0
+
+    def _allocate_task_buffer(self, num_envs):
+        # extra buffers for observe randomized params
+        self.prop_hist_len = self.cfg.RMA.hora.propHistoryLen
+        self.num_env_factors = self.cfg.RMA.hora.privInfoDim
+        self.priv_info_buf = torch.zeros((num_envs, self.num_env_factors), device=self.device, dtype=torch.float)
+        self.proprio_hist_buf = torch.zeros((num_envs, self.prop_hist_len, self.num_obs), device=self.device,
+                                            dtype=torch.float)
+
+        # additional buffer
+        self.obs_buf_lag_history = torch.zeros((self.num_envs, 80, self.num_obs), device=self.device, dtype=torch.float)

@@ -214,6 +214,34 @@ class LeggedRobotCfg(BaseConfig):
         vel_num_history_stack = 1
         action_num_history_stack = 1
 
+    # ***************** RMA specific *****************
+    class RMA:
+        class hora:
+          propHistoryLen = 30
+          privInfoDim = 5
+
+        class randomization:
+          # Randomization Property
+          randomizeMass = True
+          randomizeMassLower = 0.01
+          randomizeMassUpper = 0.25
+          randomizeCOM = True
+          randomizeCOMLower = -0.01
+          randomizeCOMUpper = 0.01
+          randomizeFriction = True
+          randomizeFrictionLower = 0.5
+          randomizeFrictionUpper = 1.25
+          randomizePDGains = True
+          randomizePGainLower = 2.9
+          randomizePGainUpper = 3.1
+          randomizeDGainLower = 0.09
+          randomizeDGainUpper = 0.11
+          jointNoiseScale = 0.02
+
+        class privInfo:
+          enableMass = True
+          enableCOM = True
+          enableFriction = True
 
 class LeggedRobotCfgPPO(BaseConfig):
     seed = 1
@@ -248,7 +276,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
         num_steps_per_env = 24  # per iteration
-        max_iterations = 2000  # number of policy updates
+        max_iterations = 300  # number of policy updates
 
         # logging
         save_interval = 50  # check for potential saves every this many iterations
