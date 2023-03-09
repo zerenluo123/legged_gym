@@ -11,8 +11,9 @@ EXTRA_ARGS_SLUG=${EXTRA_ARGS// /_}
 echo extra "${EXTRA_ARGS}"
 
 CUDA_VISIBLE_DEVICES=${GPUS} \
-python train_RMA.py --task=go1 --headless \
+python train_RMA.py --task=go1 --headless --seed=${SEED} \
 --algo=ProprioAdapt \
-train.ppo.priv_info=True train.ppo.proprio_adapt=True \
+--priv_info --proprio_adapt \
 --output_name=go1/"${CACHE}" \
+--checkpoint_model=outputs/go1/"${CACHE}"/stage1_nn/best.pth \
 ${EXTRA_ARGS}

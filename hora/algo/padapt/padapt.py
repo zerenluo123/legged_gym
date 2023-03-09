@@ -18,27 +18,27 @@ from tensorboardX import SummaryWriter
 
 
 class ProprioAdapt(object):
-    def __init__(self, env, output_dir, full_config):
-        self.device = full_config['rl_device']
-        self.network_config = full_config.train.network
-        self.ppo_config = full_config.train.ppo
+    def __init__(self, env, output_dir, train_config):
+        self.device = train_config['rl_device']
+        self.network_config = train_config['network']
+        self.train_cfg = train_config
         # ---- build environment ----
         self.env = env
-        self.num_actors = self.ppo_config['num_actors']
+        self.num_actors = self.env.num_envs
         self.observation_space = self.env.observation_space
         self.obs_shape = self.observation_space.shape
         self.action_space = self.env.action_space
         self.actions_num = self.action_space.shape[0]
         # ---- Priv Info ----
-        self.priv_info = self.ppo_config['priv_info']
-        self.priv_info_dim = self.ppo_config['priv_info_dim']
-        self.proprio_adapt = self.ppo_config['proprio_adapt']
+        self.priv_info = self.train_cfg['adapt_module']['priv_info']
+        self.priv_info_dim = self.train_cfg['adapt_module']['priv_info_dim']
+        self.proprio_adapt = self.train_cfg['adapt_module']['proprio_adapt']
         self.proprio_adapt_dim = self.env.obs_buf_lag_history.shape[2]  # input dimension of adapt module. = obs for legged robot
         self.proprio_hist_dim = self.env.prop_hist_len
         # ---- Model ----
         net_config = {
-            'actor_units': self.network_config.mlp.units,
-            'priv_mlp_units': self.network_config.priv_mlp.units,
+            'actor_units': self.network_config['mlp']['units'],
+            'priv_mlp_units': self.network_config['priv_mlp']['units'],
             'actions_num': self.actions_num,
             'input_shape': self.obs_shape,
             'priv_info': self.priv_info,
@@ -136,9 +136,10 @@ class ProprioAdapt(object):
             self.step_length = self.step_length * not_dones
 
             self.log_tensorboard()
+            self.log_regress_loss(loss)
 
-            if self.agent_steps % 1e8 == 0:
-                self.save(os.path.join(self.nn_dir, f'{self.agent_steps // 1e8}00m'))
+            if self.agent_steps % 1e7 == 0:
+                self.save(os.path.join(self.nn_dir, f'{self.agent_steps // 1e7}00m'))
                 self.save(os.path.join(self.nn_dir, f'last'))
 
             mean_rewards = self.mean_eps_reward.get_mean()
@@ -159,6 +160,8 @@ class ProprioAdapt(object):
         self.writer.add_scalar('episode_lengths/step', self.mean_eps_length.get_mean(), self.agent_steps)
         for k, v in self.direct_info.items():
             self.writer.add_scalar(f'{k}/frame', v, self.agent_steps)
+    def log_regress_loss(self, loss):
+        self.writer.add_scalar('losses/padapt_regression_loss', loss.item(), self.agent_steps)
 
     def restore_train(self, fn):
         checkpoint = torch.load(fn)
