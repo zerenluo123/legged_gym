@@ -146,6 +146,10 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
             cfg_train.runner.load_run = args.load_run
         if args.checkpoint is not None:
             cfg_train.runner.checkpoint = args.checkpoint
+        if args.priv_info:
+            cfg_train.RMA.adapt_module.priv_info = args.priv_info
+        if args.proprio_adapt:
+            cfg_train.RMA.adapt_module.proprio_adapt = args.proprio_adapt
 
     return env_cfg, cfg_train
 
@@ -168,6 +172,8 @@ def get_args():
         {"name": "--test", "action": "store_true", "default": False, "help": "whether or not test the policy"},
         {"name": "--algo", "type": str, "default": "PPO", "help": "which algorithm used to train the policy, PPO or padapt"},
         {"name": "--checkpoint_model", "type": str, "default": None, "help": "which policy model to load from"},
+        {"name": "--priv_info", "action": "store_true", "default": False, "help": "whether or not pass the privilege information as input."},
+        {"name": "--proprio_adapt", "action": "store_true", "default": False, "help": "whether or not use proprio state to do adaptation."},
 
         # test policy
         {"name": "--lin_vel_x", "type": float, "help": "linear velocity x."},

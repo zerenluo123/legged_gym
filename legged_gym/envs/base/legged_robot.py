@@ -82,6 +82,7 @@ class LeggedRobot(BaseTask):
             'mass': (0, 1),
             'friction': (1, 2),
             'com': (2, 5),
+            'motor_strength': (5, 17),  # weaken or strengthen
         }
 
         super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless)
@@ -333,11 +334,9 @@ class LeggedRobot(BaseTask):
         """ Callback allowing to store/change/randomize the DOF properties of each environment.
             Called During environment creation.
             Base behavior: stores position, velocity and torques limits defined in the URDF
-
         Args:
             props (numpy.array): Properties of each DOF of the asset
             env_id (int): Environment id
-
         Returns:
             [numpy.array]: Modified DOF properties
         """
@@ -355,6 +354,16 @@ class LeggedRobot(BaseTask):
                 r = self.dof_pos_limits[i, 1] - self.dof_pos_limits[i, 0]
                 self.dof_pos_limits[i, 0] = m - 0.5 * r * self.cfg.rewards.soft_dof_pos_limit
                 self.dof_pos_limits[i, 1] = m + 0.5 * r * self.cfg.rewards.soft_dof_pos_limit
+
+        # ! set gym's PD controller
+        for i in range(self.num_dof):
+            name = self.dof_names[i]
+            for dof_name in self.cfg.control.stiffness.keys():
+                if dof_name in name:
+                    props['driveMode'][i] = gymapi.DOF_MODE_POS
+                    props['stiffness'][i] = self.cfg.control.stiffness[dof_name]  # self.Kp
+                    props['damping'][i] = self.cfg.control.damping[dof_name]  # self.Kd
+
         return props
 
     def _process_rigid_body_props(self, props, env_id):
@@ -642,9 +651,6 @@ class LeggedRobot(BaseTask):
                     print(f"PD gain of joint {name} were not defined, setting them to zero")
         self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
 
-        # RMA specific buffer
-        self._allocate_task_buffer(self.num_envs)
-
     def _prepare_reward_function(self):
         """ Prepares a list of reward functions, whcih will be called to compute the total reward.
             Looks for self._reward_<REWARD_NAME>, where <REWARD_NAME> are names of all non zero reward scales in the cfg.
@@ -748,6 +754,7 @@ class LeggedRobot(BaseTask):
         self.num_dof = self.gym.get_asset_dof_count(robot_asset)
         self.num_bodies = self.gym.get_asset_rigid_body_count(robot_asset)
         dof_props_asset = self.gym.get_asset_dof_properties(robot_asset)
+
         rigid_shape_props_asset = self.gym.get_asset_rigid_shape_properties(robot_asset)
 
         # save body names from the asset
@@ -762,15 +769,6 @@ class LeggedRobot(BaseTask):
         termination_contact_names = []
         for name in self.cfg.asset.terminate_after_contacts_on:
             termination_contact_names.extend([s for s in body_names if name in s])
-
-        # ! set gym's PD controller
-        for i in range(self.num_dof):
-            name = self.dof_names[i]
-            for dof_name in self.cfg.control.stiffness.keys():
-                if dof_name in name:
-                    dof_props_asset['driveMode'][i] = gymapi.DOF_MODE_POS
-                    dof_props_asset['stiffness'][i] = self.cfg.control.stiffness[dof_name] #self.Kp
-                    dof_props_asset['damping'][i] = self.cfg.control.damping[dof_name] #self.Kd
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)
@@ -792,12 +790,59 @@ class LeggedRobot(BaseTask):
             rigid_shape_props = self._process_rigid_shape_props(rigid_shape_props_asset, i)
             self.gym.set_asset_rigid_shape_properties(robot_asset, rigid_shape_props)
             actor_handle = self.gym.create_actor(env_handle, robot_asset, start_pose, self.cfg.asset.name, i, self.cfg.asset.self_collisions, 0)
+
             dof_props = self._process_dof_props(dof_props_asset, i)
             self.gym.set_actor_dof_properties(env_handle, actor_handle, dof_props)
             self.gym.enable_actor_dof_force_sensors(env_handle, actor_handle)  # Note: important to read torque !!!!
             body_props = self.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
             body_props = self._process_rigid_body_props(body_props, i)
             self.gym.set_actor_rigid_body_properties(env_handle, actor_handle, body_props, recomputeInertia=True)
+
+            # TODO: add privilige information
+            delta_mass = 0.
+            if self.randomize_mass:
+                prop = self.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
+                delta_mass = np.random.uniform(self.randomize_mass_lower, self.randomize_mass_upper)
+                prop[0].mass += delta_mass  # only randomize base mass
+                self.gym.set_actor_rigid_body_properties(env_handle, actor_handle, prop)
+            self._update_priv_buf(env_id=i, name='mass', value=delta_mass,
+                                  lower=self.randomize_mass_lower, upper=self.randomize_mass_upper)
+
+            friction = 1.0
+            if self.randomize_friction:
+                rand_friction = np.random.uniform(self.randomize_friction_lower, self.randomize_friction_upper)
+                rigid_shape_props = self.gym.get_actor_rigid_shape_properties(env_handle, actor_handle)
+                for p in rigid_shape_props:
+                    p.friction = rand_friction
+                self.gym.set_actor_rigid_shape_properties(env_handle, actor_handle, rigid_shape_props)
+                friction = rand_friction
+            self._update_priv_buf(env_id=i, name='friction', value=friction,
+                                  lower=self.randomize_friction_lower, upper=self.randomize_friction_upper)
+
+            com = [0, 0, 0]
+            if self.randomize_com:
+                prop = self.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
+                com = [np.random.uniform(self.randomize_com_lower, self.randomize_com_upper),
+                       np.random.uniform(self.randomize_com_lower, self.randomize_com_upper),
+                       np.random.uniform(self.randomize_com_lower, self.randomize_com_upper)]
+                prop[0].com.x, prop[0].com.y, prop[0].com.z = com
+                self.gym.set_actor_rigid_body_properties(env_handle, actor_handle, prop)
+            self._update_priv_buf(env_id=i, name='com', value=com,
+                                  lower=self.randomize_com_lower, upper=self.randomize_com_upper)
+
+            motor_strength = []
+            if self.randomize_motor_strength:
+                dof_prop = self.gym.get_actor_dof_properties(env_handle, actor_handle)
+                for i_dof in range(self.num_dof):
+                    rand_motor_strength = np.random.uniform(self.randomize_motor_strength_lower, self.randomize_motor_strength_upper)
+                    # ! set gym's PD controller
+                    dof_prop['stiffness'][i_dof] *= rand_motor_strength  # self.Kp
+                    dof_prop['damping'][i_dof] *= rand_motor_strength  # self.Kd
+                    motor_strength.append(rand_motor_strength)
+                self.gym.set_actor_dof_properties(env_handle, actor_handle, dof_prop)
+            self._update_priv_buf(env_id=i, name='motor_strength', value=motor_strength,
+                                  lower=self.randomize_motor_strength_lower, upper=self.randomize_motor_strength_upper)
+
             self.envs.append(env_handle)
             self.actor_handles.append(actor_handle)
 
@@ -1056,12 +1101,6 @@ class LeggedRobot(BaseTask):
         self.obs_dict['proprio_hist'] = self.proprio_hist_buf.to(self.device)
         return self.obs_dict
 
-    # def step(self, actions):
-    #     super().step(actions)
-    #     self.obs_dict['priv_info'] = self.priv_info_buf.to(self.device)
-    #     self.obs_dict['proprio_hist'] = self.proprio_hist_buf.to(self.device)
-    #     return self.obs_dict, self.rew_buf, self.reset_buf, self.extras
-
     def _setup_domain_rand_config(self, rand_config):
         self.randomize_mass = rand_config.randomizeMass
         self.randomize_mass_lower = rand_config.randomizeMassLower
@@ -1072,17 +1111,17 @@ class LeggedRobot(BaseTask):
         self.randomize_friction = rand_config.randomizeFriction
         self.randomize_friction_lower = rand_config.randomizeFrictionLower
         self.randomize_friction_upper = rand_config.randomizeFrictionUpper
-        self.randomize_pd_gains = rand_config.randomizePDGains
-        self.randomize_p_gain_lower = rand_config.randomizePGainLower
-        self.randomize_p_gain_upper = rand_config.randomizePGainUpper
-        self.randomize_d_gain_lower = rand_config.randomizeDGainLower
-        self.randomize_d_gain_upper = rand_config.randomizeDGainUpper
+        self.randomize_motor_strength = rand_config.randomizeMotorStrength
+        self.randomize_motor_strength_lower = rand_config.randomizeMotorStrengthLower
+        self.randomize_motor_strength_upper = rand_config.randomizeMotorStrengthUpper
         self.joint_noise_scale = rand_config.jointNoiseScale
 
     def _setup_priv_option_config(self, p_config):
         self.enable_priv_mass = p_config.enableMass
         self.enable_priv_com = p_config.enableCOM
         self.enable_priv_friction = p_config.enableFriction
+        self.enable_priv_motor_strength = p_config.enableMotorStrength
+
 
     def _update_priv_buf(self, env_id, name, value, lower=None, upper=None):
         # normalize to -1, 1
@@ -1106,6 +1145,3 @@ class LeggedRobot(BaseTask):
         self.priv_info_buf = torch.zeros((num_envs, self.num_env_factors), device=self.device, dtype=torch.float)
         self.proprio_hist_buf = torch.zeros((num_envs, self.prop_hist_len, self.num_obs), device=self.device,
                                             dtype=torch.float)
-
-        # additional buffer
-        self.obs_buf_lag_history = torch.zeros((self.num_envs, 80, self.num_obs), device=self.device, dtype=torch.float)

@@ -79,6 +79,7 @@ class BaseTask():
 
         self.extras = {}
 
+        self._allocate_buffers() # RMA specific buffers
         # create envs, sim and viewer
         self.create_sim()
         self.gym.prepare_sim(self.sim)
@@ -120,6 +121,13 @@ class BaseTask():
 
     def step(self, actions):
         raise NotImplementedError
+
+    def _allocate_buffers(self):
+        # additional buffer
+        self.obs_buf_lag_history = torch.zeros((self.num_envs, 80, self.num_obs), device=self.device, dtype=torch.float)
+        self._allocate_task_buffer(self.num_envs)
+    def _allocate_task_buffer(self, num_envs):
+        pass
 
     @property
     def observation_space(self) -> gym.Space:

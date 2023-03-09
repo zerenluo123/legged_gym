@@ -79,9 +79,9 @@ class Go1RoughCfg(LeggedRobotCfg):
         self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
 
     class domain_rand(LeggedRobotCfg.domain_rand):
-        randomize_base_mass = True
+        randomize_base_mass = False
         added_mass_range = [-1., 1.]
-        randomize_limb_mass = True
+        randomize_limb_mass = False
         added_limb_percentage = [-0.2, 0.2]
 
     class rewards(LeggedRobotCfg.rewards):

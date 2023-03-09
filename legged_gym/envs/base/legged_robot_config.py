@@ -122,7 +122,7 @@ class LeggedRobotCfg(BaseConfig):
         thickness = 0.01
 
     class domain_rand:
-        randomize_friction = True
+        randomize_friction = False
         friction_range = [0.5, 1.25]
         randomize_base_mass = False
         added_mass_range = [-1., 1.]
@@ -218,7 +218,7 @@ class LeggedRobotCfg(BaseConfig):
     class RMA:
         class hora:
           propHistoryLen = 30
-          privInfoDim = 5
+          privInfoDim = 17
 
         class randomization:
           # Randomization Property
@@ -231,17 +231,17 @@ class LeggedRobotCfg(BaseConfig):
           randomizeFriction = True
           randomizeFrictionLower = 0.5
           randomizeFrictionUpper = 1.25
-          randomizePDGains = True
-          randomizePGainLower = 2.9
-          randomizePGainUpper = 3.1
-          randomizeDGainLower = 0.09
-          randomizeDGainUpper = 0.11
+          randomizeMotorStrength = True
+          randomizeMotorStrengthLower = 0.9
+          randomizeMotorStrengthUpper = 1.1
           jointNoiseScale = 0.02
 
         class privInfo:
           enableMass = True
           enableCOM = True
           enableFriction = True
+          enableMotorStrength = True
+
 
 class LeggedRobotCfgPPO(BaseConfig):
     seed = 1
@@ -324,6 +324,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         class adapt_module:
             # hora setting
             priv_info = False
-            priv_info_dim = 5
+            priv_info_dim = 17
             priv_info_embed_dim = 8
             proprio_adapt = False
