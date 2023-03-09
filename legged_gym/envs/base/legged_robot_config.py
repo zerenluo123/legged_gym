@@ -188,7 +188,7 @@ class LeggedRobotCfg(BaseConfig):
     class viewer:
         ref_env = 0
         pos = [10, 0, 6]  # [m]
-        lookat = [11., 5, 3.]  # [m]
+        lookat = [3., 5, 3.]  # [m]
 
     class sim:
         dt = 0.005
@@ -234,6 +234,9 @@ class LeggedRobotCfg(BaseConfig):
           randomizeMotorStrength = True
           randomizeMotorStrengthLower = 0.9
           randomizeMotorStrengthUpper = 1.1
+          randomizeMotorFault = True
+          randomizeMotorFaultLower = 0. # extreme case
+          randomizeMotorFaultUpper = 1.0 # normal
           jointNoiseScale = 0.02
 
         class privInfo:

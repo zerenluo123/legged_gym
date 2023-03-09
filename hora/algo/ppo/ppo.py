@@ -214,6 +214,7 @@ class PPO(object):
     def restore_train(self, fn):
         if not fn:
             return
+        print(f"Loading model from: {fn}")
         checkpoint = torch.load(fn)
         self.model.load_state_dict(checkpoint['model'])
         self.running_mean_std.load_state_dict(checkpoint['running_mean_std'])

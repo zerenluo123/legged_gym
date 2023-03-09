@@ -7,3 +7,4 @@ python train_RMA.py --task=go1 \
 --priv_info \
 --output_name=go1/"${CACHE}" \
 --checkpoint_model=outputs/go1/"${CACHE}"/stage1_nn/best.pth \
+--fault=0.1

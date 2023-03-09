@@ -78,6 +78,7 @@ class LeggedRobot(BaseTask):
 
         # ************************ RMA specific ************************
         # self.evaluate = self.cfg['on_evaluation']
+        self.motor_fault_dofs = [6, 7, 8] # FL: [0, 1, 2];
         self.priv_info_dict = {
             'mass': (0, 1),
             'friction': (1, 2),
@@ -831,17 +832,34 @@ class LeggedRobot(BaseTask):
                                   lower=self.randomize_com_lower, upper=self.randomize_com_upper)
 
             motor_strength = []
+            fault_strength = np.random.uniform(self.randomize_motor_fault_lower,
+                                                self.randomize_motor_fault_upper) # fixed
             if self.randomize_motor_strength:
                 dof_prop = self.gym.get_actor_dof_properties(env_handle, actor_handle)
                 for i_dof in range(self.num_dof):
-                    rand_motor_strength = np.random.uniform(self.randomize_motor_strength_lower, self.randomize_motor_strength_upper)
+                    if self.randomize_motor_fault:
+                        if i_dof in self.motor_fault_dofs:
+                            # rand_motor_strength = np.random.uniform(self.randomize_motor_fault_lower,
+                            #                                         self.randomize_motor_fault_upper)
+                            rand_motor_strength = fault_strength # fixed
+                        else:
+                            rand_motor_strength = np.random.uniform(self.randomize_motor_strength_lower,
+                                                                    self.randomize_motor_strength_upper)
+                    else:
+                        rand_motor_strength = np.random.uniform(self.randomize_motor_strength_lower,
+                                                                self.randomize_motor_strength_upper)
                     # ! set gym's PD controller
                     dof_prop['stiffness'][i_dof] *= rand_motor_strength  # self.Kp
                     dof_prop['damping'][i_dof] *= rand_motor_strength  # self.Kd
                     motor_strength.append(rand_motor_strength)
                 self.gym.set_actor_dof_properties(env_handle, actor_handle, dof_prop)
+                # print("**** motor_strength ", motor_strength)
+                # print("**** KP ", dof_prop['stiffness'])
+                # print("**** KD ", dof_prop['damping'])
+
             self._update_priv_buf(env_id=i, name='motor_strength', value=motor_strength,
                                   lower=self.randomize_motor_strength_lower, upper=self.randomize_motor_strength_upper)
+
 
             self.envs.append(env_handle)
             self.actor_handles.append(actor_handle)
@@ -1115,6 +1133,9 @@ class LeggedRobot(BaseTask):
         self.randomize_motor_strength_lower = rand_config.randomizeMotorStrengthLower
         self.randomize_motor_strength_upper = rand_config.randomizeMotorStrengthUpper
         self.joint_noise_scale = rand_config.jointNoiseScale
+        self.randomize_motor_fault = rand_config.randomizeMotorFault
+        self.randomize_motor_fault_lower = rand_config.randomizeMotorFaultLower
+        self.randomize_motor_fault_upper = rand_config.randomizeMotorFaultUpper
 
     def _setup_priv_option_config(self, p_config):
         self.enable_priv_mass = p_config.enableMass

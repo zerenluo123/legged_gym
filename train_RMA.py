@@ -48,12 +48,6 @@ def train(args):
     # override cfg from args (if specified)
     env_cfg, train_cfg = update_cfg_from_args(env_cfg, train_cfg, args)
 
-    if args.test:
-        # fixed velocity direction evaluation (make sure the value is within the training range)
-        env_cfg.commands.ranges.lin_vel_x = [args.lin_vel_x, args.lin_vel_x]
-        env_cfg.commands.ranges.lin_vel_y = [args.lin_vel_y, args.lin_vel_y]
-        env_cfg.commands.ranges.heading = [args.heading, args.heading]
-
     cprint('Start Building the Environment', 'green', attrs=['bold'])
     env, env_cfg = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
 

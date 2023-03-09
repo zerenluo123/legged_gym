@@ -150,6 +150,13 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
             cfg_train.RMA.adapt_module.priv_info = args.priv_info
         if args.proprio_adapt:
             cfg_train.RMA.adapt_module.proprio_adapt = args.proprio_adapt
+        if args.lin_vel_x is not None and args.lin_vel_y is not None and args.heading is not None:
+            env_cfg.commands.ranges.lin_vel_x = [args.lin_vel_x, args.lin_vel_x]
+            env_cfg.commands.ranges.lin_vel_y = [args.lin_vel_y, args.lin_vel_y]
+            env_cfg.commands.ranges.heading = [args.heading, args.heading]
+        if args.fault is not None: # fix the fault rand sample range
+            env_cfg.RMA.randomization.randomizeMotorFaultLower = args.fault
+            env_cfg.RMA.randomization.randomizeMotorFaultUpper = args.fault
 
     return env_cfg, cfg_train
 
@@ -179,6 +186,7 @@ def get_args():
         {"name": "--lin_vel_x", "type": float, "help": "linear velocity x."},
         {"name": "--lin_vel_y", "type": float, "help": "linear velocity y."},
         {"name": "--heading", "type": float, "help": "heading."},
+        {"name": "--fault", "type": float, "help": "fault by how many percentage."},
 
     ]
     # parse arguments
