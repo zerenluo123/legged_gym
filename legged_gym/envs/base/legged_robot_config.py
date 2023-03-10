@@ -237,6 +237,7 @@ class LeggedRobotCfg(BaseConfig):
           randomizeMotorFault = True
           randomizeMotorFaultLower = 0. # extreme case
           randomizeMotorFaultUpper = 1.0 # normal
+          motorFaultJoints = ['FL_hip_joint', 'FL_thigh_joint', 'FL_calf_joint'] # which joint to fault
           jointNoiseScale = 0.02
 
         class privInfo:
@@ -318,7 +319,7 @@ class LeggedRobotCfgPPO(BaseConfig):
 
             save_best_after = 0
             save_frequency = 50
-            max_agent_steps = 500000000
+            max_agent_steps = 5000000000
         class network:
           class mlp:
             units = [512, 256, 128]

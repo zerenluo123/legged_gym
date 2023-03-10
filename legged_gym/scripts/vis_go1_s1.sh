@@ -6,5 +6,5 @@ python train_RMA.py --task=go1 \
 --algo=PPO \
 --priv_info \
 --output_name=go1/"${CACHE}" \
---checkpoint_model=outputs/go1/"${CACHE}"/stage1_nn/best.pth \
---fault=0.1
+--checkpoint_model=outputs/go1/"${CACHE}"/stage1_nn/last.pth \
+--fault=0.0

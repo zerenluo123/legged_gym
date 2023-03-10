@@ -78,7 +78,6 @@ class LeggedRobot(BaseTask):
 
         # ************************ RMA specific ************************
         # self.evaluate = self.cfg['on_evaluation']
-        self.motor_fault_dofs = [6, 7, 8] # FL: [0, 1, 2];
         self.priv_info_dict = {
             'mass': (0, 1),
             'friction': (1, 2),
@@ -781,6 +780,16 @@ class LeggedRobot(BaseTask):
         env_upper = gymapi.Vec3(0., 0., 0.)
         self.actor_handles = []
         self.envs = []
+
+        # ************************ RMA specific ************************
+        self.motor_fault_dofs = []  # specify the weaken motor in yaml
+        for i_dof in range(self.num_dof):
+            name = self.dof_names[i_dof]
+            for fault_joint in self.motor_fault_joints:
+                if name == fault_joint:
+                    self.motor_fault_dofs.append(i_dof)
+
+        # start to create env and actors
         for i in range(self.num_envs):
             # create env instance
             env_handle = self.gym.create_env(self.sim, env_lower, env_upper, int(np.sqrt(self.num_envs)))
@@ -799,7 +808,7 @@ class LeggedRobot(BaseTask):
             body_props = self._process_rigid_body_props(body_props, i)
             self.gym.set_actor_rigid_body_properties(env_handle, actor_handle, body_props, recomputeInertia=True)
 
-            # TODO: add privilige information
+            # ! add privilige information
             delta_mass = 0.
             if self.randomize_mass:
                 prop = self.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
@@ -1136,6 +1145,7 @@ class LeggedRobot(BaseTask):
         self.randomize_motor_fault = rand_config.randomizeMotorFault
         self.randomize_motor_fault_lower = rand_config.randomizeMotorFaultLower
         self.randomize_motor_fault_upper = rand_config.randomizeMotorFaultUpper
+        self.motor_fault_joints = rand_config.motorFaultJoints
 
     def _setup_priv_option_config(self, p_config):
         self.enable_priv_mass = p_config.enableMass
