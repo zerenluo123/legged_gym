@@ -947,39 +947,67 @@ class LeggedRobot(BaseTask):
                     sphere_pose = gymapi.Transform(gymapi.Vec3(x, y, z), r=None)
                     gymutil.draw_lines(sphere_geom, self.gym, self.viewer, self.envs[i], sphere_pose)
 
-        # draw COM and its projection
-        com_proj_geom = gymutil.WireframeSphereGeometry(0.03, 16, 16, None, color=(0, 1, 0))
-        contact_geom = gymutil.WireframeSphereGeometry(0.03, 16, 16, None, color=(0, 0, 1))
+        com_proj_geom = gymutil.WireframeSphereGeometry(0.03, 32, 32, None, color=(0, 1, 0))
+        contact_geom = gymutil.WireframeSphereGeometry(0.03, 32, 32, None, color=(0, 0, 1))
+        cop_geom = gymutil.WireframeSphereGeometry(0.03, 32, 32, None, color=(0.85, 0.5, 0.1))
         for i in range(self.num_envs):
+            # draw COM(= base pose) and its projection
+            prop = self.gym.get_actor_rigid_body_properties(self.envs[i], self.actor_handles[i])
             base_pos = (self.root_states[i, :3]).cpu().numpy()
-            com_x = base_pos[0]
-            com_y = base_pos[1]
-            com_z, com_proj_z = base_pos[2], 0
+            com_x = prop[0].com.x + base_pos[0]
+            com_y = prop[0].com.y + base_pos[1]
+            com_z, com_proj_z = prop[0].com.z + base_pos[2], 0
             com_proj_pose = gymapi.Transform(gymapi.Vec3(com_x, com_y, com_proj_z), r=None)
             gymutil.draw_lines(com_proj_geom, self.gym, self.viewer, self.envs[i], com_proj_pose)
 
+            # draw contact point and COP projection
             eef_state = self.rigid_body_state[i, self.feet_indices, :3]
             contact_idxs = (self.contact_forces[i, self.feet_indices, 2] > 1.).nonzero(as_tuple=False).flatten()
             contact_state = eef_state[contact_idxs]
+            contact_force = self.contact_forces[i, self.feet_indices[contact_idxs], 2]
+
             for i_feet in range(contact_state.shape[0]):
                 contact_pose = contact_state[i_feet, :]
                 sphere_pose = gymapi.Transform(gymapi.Vec3(contact_pose[0], contact_pose[1], 0), r=None)
                 gymutil.draw_lines(contact_geom, self.gym, self.viewer, self.envs[i], sphere_pose)
 
-            # draw connected line between contact point (fault case and normal case)
-            contact_num = contact_state.shape[0]
-            if contact_num >= 2:
-                if contact_num == 4: # switch the order of rectangle
-                    contact_state = contact_state[[0, 1, 3, 2], :]
-                polygon_start = contact_state[0].cpu().numpy()
-                for i_feet in range(contact_num):
-                    polygon_end = contact_state[(i_feet + 1) % contact_num, :].cpu().numpy()
-                    self.gym.add_lines(self.viewer, self.envs[i], 1,
-                                       [polygon_start[0], polygon_start[1], polygon_start[2],
-                                        polygon_end[0], polygon_end[1], polygon_end[2]],
-                                       [0.85, 0.1, 0.1])
-                    polygon_start = polygon_end
+            # calculate and draw COP
+            cop_sum = torch.sum(contact_state * contact_force.view(contact_force.shape[0], 1), dim=0)
+            cop = cop_sum / torch.sum(contact_force)
+            sphere_pose = gymapi.Transform(gymapi.Vec3(cop[0], cop[1], 0), r=None)
+            gymutil.draw_lines(cop_geom, self.gym, self.viewer, self.envs[i], sphere_pose)
 
+            # draw connected line between contact point (fault case and normal case)
+            self._draw_contact_polygon(contact_state, self.envs[i])
+
+
+    def _draw_contact_polygon(self, contact_state, env_handle):
+        contact_num = contact_state.shape[0]
+        if contact_num >= 2:
+            if contact_num == 4:  # switch the order of rectangle
+                contact_state = contact_state[[0, 1, 3, 2], :]
+            polygon_start = contact_state[0].cpu().numpy()
+
+            width, n_lines = 0.01, 10 # make it thicker
+            polygon_starts = []
+            for i_line in range(n_lines):
+                polygon_starts.append(polygon_start.copy())
+                polygon_start += np.array([0, 0, width/n_lines])
+            for i_feet in range(contact_num):
+                polygon_end = contact_state[(i_feet + 1) % contact_num, :].cpu().numpy()
+
+                polygon_ends = []
+                polygon_vecs = []
+                for i_line in range(n_lines):
+                    polygon_ends.append(polygon_end.copy())
+                    polygon_end += np.array([0, 0, width / n_lines])
+                    polygon_vecs.append([polygon_starts[i_line][0], polygon_starts[i_line][1], polygon_starts[i_line][2],
+                                          polygon_ends[i_line][0], polygon_ends[i_line][1], polygon_ends[i_line][2]])
+                self.gym.add_lines(self.viewer, env_handle, n_lines,
+                                   polygon_vecs,
+                                   n_lines * [0.85, 0.1, 0.1])
+
+                polygon_starts = polygon_ends
 
     def _init_height_points(self):
         """ Returns points at which the height measurments are sampled (in base frame)
