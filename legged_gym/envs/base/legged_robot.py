@@ -959,11 +959,27 @@ class LeggedRobot(BaseTask):
             gymutil.draw_lines(com_proj_geom, self.gym, self.viewer, self.envs[i], com_proj_pose)
 
             eef_state = self.rigid_body_state[i, self.feet_indices, :3]
-            print(eef_state[:, 2])
-            for i_feet in range(eef_state.shape[0]):
-                feet_pose =  eef_state[i_feet, :]
-                sphere_pose = gymapi.Transform(gymapi.Vec3(feet_pose[0], feet_pose[1], feet_pose[2]), r=None)
+            contact_idxs = (self.contact_forces[i, self.feet_indices, 2] > 1.).nonzero(as_tuple=False).flatten()
+            contact_state = eef_state[contact_idxs]
+            for i_feet in range(contact_state.shape[0]):
+                contact_pose = contact_state[i_feet, :]
+                sphere_pose = gymapi.Transform(gymapi.Vec3(contact_pose[0], contact_pose[1], 0), r=None)
                 gymutil.draw_lines(contact_geom, self.gym, self.viewer, self.envs[i], sphere_pose)
+
+            # draw connected line between contact point (fault case and normal case)
+            contact_num = contact_state.shape[0]
+            if contact_num >= 2:
+                if contact_num == 4: # switch the order of rectangle
+                    contact_state = contact_state[[0, 1, 3, 2], :]
+                polygon_start = contact_state[0].cpu().numpy()
+                for i_feet in range(contact_num):
+                    polygon_end = contact_state[(i_feet + 1) % contact_num, :].cpu().numpy()
+                    self.gym.add_lines(self.viewer, self.envs[i], 1,
+                                       [polygon_start[0], polygon_start[1], polygon_start[2],
+                                        polygon_end[0], polygon_end[1], polygon_end[2]],
+                                       [0.85, 0.1, 0.1])
+                    polygon_start = polygon_end
+
 
     def _init_height_points(self):
         """ Returns points at which the height measurments are sampled (in base frame)
