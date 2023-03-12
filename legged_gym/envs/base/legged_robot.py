@@ -32,6 +32,7 @@ from legged_gym import LEGGED_GYM_ROOT_DIR, envs
 from time import time
 from warnings import WarningMessage
 import numpy as np
+from termcolor import cprint
 import os
 
 from isaacgym.torch_utils import *
@@ -106,6 +107,9 @@ class LeggedRobot(BaseTask):
         for _ in range(self.cfg.control.decimation):
             # self.torques = self._compute_torques(self.actions).view(self.torques.shape)
             # self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
+            # TODO: if one leg is total fault, apply torque to fixed position
+            fault_torques = self._compute_fault_torques().view(self.torques.shape)
+            self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(fault_torques))
 
             # Note: Position control
             self.target_poses = self._compute_poses(self.actions).view(self.target_poses.shape)
@@ -159,6 +163,7 @@ class LeggedRobot(BaseTask):
         self.last_root_vel[:] = self.root_states[:, 7:13]
 
         if self.viewer and self.enable_viewer_sync and self.debug_viz:
+            cprint('Enable Contact Schedule Visualization', 'green', attrs=['bold'])
             self._draw_debug_vis()
 
     def check_termination(self):
@@ -423,6 +428,17 @@ class LeggedRobot(BaseTask):
 
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
+
+    def _compute_fault_torques(self):
+        torques = torch.zeros(self.num_envs, self.num_dof, dtype=torch.float,
+                              device=self.device, requires_grad=False)
+        if self.total_fault_idxs.shape[0] == 0:
+            return torques
+
+        fault_toques = self.p_gains[self.motor_fault_dofs] * (self.total_fault_joint_poses - self.dof_pos[self.total_fault_idxs, self.motor_fault_dofs]) \
+                       - self.d_gains[self.motor_fault_dofs] * self.dof_vel[self.total_fault_idxs, self.motor_fault_dofs]
+        torques[self.total_fault_idxs, self.motor_fault_dofs] = fault_toques
+        return torch.clip(torques, -self.torque_limits, self.torque_limits)
 
     def _compute_torques(self, actions):
         """ Compute torques from actions.
@@ -777,6 +793,9 @@ class LeggedRobot(BaseTask):
         start_pose = gymapi.Transform()
         start_pose.p = gymapi.Vec3(*self.base_init_state[:3])
 
+        # ---------- Total fault joint init pose ---------
+        self.total_fault_joint_poses =  to_torch(self.total_fault_joint_poses, device=self.device, requires_grad=False).unsqueeze(0)
+
         self._get_env_origins()
         env_lower = gymapi.Vec3(0., 0., 0.)
         env_upper = gymapi.Vec3(0., 0., 0.)
@@ -790,6 +809,7 @@ class LeggedRobot(BaseTask):
             for fault_joint in self.motor_fault_joints:
                 if name == fault_joint:
                     self.motor_fault_dofs.append(i_dof)
+        self.fault_strenght_list = []
 
         # start to create env and actors
         for i in range(self.num_envs):
@@ -845,6 +865,7 @@ class LeggedRobot(BaseTask):
             motor_strength = []
             fault_strength = np.random.uniform(self.randomize_motor_fault_lower,
                                                 self.randomize_motor_fault_upper) # fixed
+            self.fault_strenght_list.append(fault_strength) # for logging scenarios
             if self.randomize_motor_strength:
                 dof_prop = self.gym.get_actor_dof_properties(env_handle, actor_handle)
                 for i_dof in range(self.num_dof):
@@ -871,9 +892,11 @@ class LeggedRobot(BaseTask):
             self._update_priv_buf(env_id=i, name='motor_strength', value=motor_strength,
                                   lower=self.randomize_motor_strength_lower, upper=self.randomize_motor_strength_upper)
 
-
             self.envs.append(env_handle)
             self.actor_handles.append(actor_handle)
+
+        self.total_fault_idxs = (to_torch(self.fault_strenght_list, device=self.device) < 0.02).nonzero(as_tuple=False).flatten()
+        cprint('Total failure indices: {}'.format(self.total_fault_idxs.cpu().numpy()), 'blue', attrs=['bold'])
 
         self.feet_indices = torch.zeros(len(feet_names), dtype=torch.long, device=self.device, requires_grad=False)
         for i in range(len(feet_names)):
@@ -1210,7 +1233,7 @@ class LeggedRobot(BaseTask):
         self.randomize_motor_fault_lower = rand_config.randomizeMotorFaultLower
         self.randomize_motor_fault_upper = rand_config.randomizeMotorFaultUpper
         self.motor_fault_joints = rand_config.motorFaultJoints
-
+        self.total_fault_joint_poses = rand_config.totalFaultJointPoses
     def _setup_priv_option_config(self, p_config):
         self.enable_priv_mass = p_config.enableMass
         self.enable_priv_com = p_config.enableCOM

@@ -239,6 +239,7 @@ class LeggedRobotCfg(BaseConfig):
           randomizeMotorFaultLower = 0. # extreme case
           randomizeMotorFaultUpper = 1.0 # normal
           motorFaultJoints = ['FL_hip_joint', 'FL_thigh_joint', 'FL_calf_joint'] # which joint to fault
+          totalFaultJointPoses = [0.0, 1.1, -2.4] # freeze total fault joint angle
           jointNoiseScale = 0.02
 
         class privInfo:

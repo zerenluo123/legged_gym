@@ -22,7 +22,7 @@ def play(args):
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-    obs = env.get_observations()
+    obs = env.reset()
 
     # TODO: hand-crafted policy
 
@@ -43,7 +43,7 @@ def play(args):
                                  0, osc1, 0,
                                  0, osc1, 0,
                                  0, osc1, 0]], dtype=torch.float)
-        obs, _, rews, dones, infos = env.step(actions.detach())
+        obs, rews, dones, infos = env.step(actions.detach())
 
         if i < stop_state_log:
             logger.log_states(

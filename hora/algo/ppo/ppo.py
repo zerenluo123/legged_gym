@@ -22,7 +22,6 @@ from hora.utils.misc import AverageScalarMeter
 
 from tensorboardX import SummaryWriter
 
-
 class PPO(object):
     def __init__(self, env, output_dif, train_config):
         self.device = train_config['rl_device']
@@ -97,6 +96,8 @@ class PPO(object):
         self.extra_info = {}
         writer = SummaryWriter(self.tb_dif)
         self.writer = writer
+        # ---- Test plotter Logger ----
+        self.logger = None
 
         self.episode_rewards = AverageScalarMeter(100)
         self.episode_lengths = AverageScalarMeter(100)
@@ -226,6 +227,12 @@ class PPO(object):
             self.running_mean_std.load_state_dict(checkpoint['running_mean_std'])
 
     def test(self):
+        # log index
+        robot_index = 0  # which robot is used for logging
+        joint_index = 2  # which joint is used for logging
+        stop_state_log = 300  # number of steps before plotting states
+        i = 0
+
         self.set_eval()
         obs_dict = self.env.reset()
         while True:
@@ -236,6 +243,19 @@ class PPO(object):
             mu = self.model.act_inference(input_dict)
             mu = torch.clamp(mu, -1.0, 1.0)
             obs_dict, r, done, info = self.env.step(mu)
+
+            # plot items
+            if i < stop_state_log:
+                self.logger.log_states(
+                    {
+                        'dof_pos': self.env.dof_pos[robot_index, joint_index].item(),
+                        'dof_vel': self.env.dof_vel[robot_index, joint_index].item(),
+                        'dof_torque': self.env.torques[robot_index, joint_index].item(),
+                    }
+                )
+            elif i == stop_state_log:
+                self.logger.plot_states()
+            i += 1
 
     def train_epoch(self):
         # collect minibatch data
