@@ -29,6 +29,8 @@
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
 import sys
+from termcolor import cprint
+
 from isaacgym import gymapi
 from isaacgym import gymutil
 import numpy as np
@@ -90,6 +92,7 @@ class BaseTask():
 
         # if running with a viewer, set up keyboard shortcuts and camera
         if self.headless == False:
+            cprint('Enable Visualization', 'green', attrs=['bold'])
             # subscribe to keyboard shortcuts
             self.viewer = self.gym.create_viewer(
                 self.sim, gymapi.CameraProperties())

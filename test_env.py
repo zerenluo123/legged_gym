@@ -32,6 +32,13 @@ def play(args):
     stop_state_log = 500  # number of steps before plotting states
     stop_rew_log = env.max_episode_length + 1  # number of steps before print average episode rewards
 
+    env_handle = env.envs[0]
+    actor_handle = env.gym.find_actor_handle(env_handle, env.cfg.asset.name)
+    body_names = env.body_names
+    prop = env.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
+    for i, p in enumerate(prop):
+        print(body_names[i], " mass: ", p.mass)
+
     for i in range(10 * int(env.max_episode_length)):
         # # Sets the pose to be fixed at origin. equivalent to hang the robot
         # fixed_pose = torch.tensor([[0.0, 0.0, 0.4, 0., -0., -0., 0.5]], dtype=torch.float)

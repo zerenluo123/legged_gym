@@ -163,7 +163,6 @@ class LeggedRobot(BaseTask):
         self.last_root_vel[:] = self.root_states[:, 7:13]
 
         if self.viewer and self.enable_viewer_sync and self.debug_viz:
-            cprint('Enable Contact Schedule Visualization', 'green', attrs=['bold'])
             self._draw_debug_vis()
 
     def check_termination(self):
@@ -398,15 +397,21 @@ class LeggedRobot(BaseTask):
 
     def _post_physics_step_callback(self):
         """ Callback called before computing terminations, rewards, and observations
-            Default behaviour: Compute ang vel command based on target and heading, compute measured terrain heights and randomly push robots
+            Default behaviour: Compute ang vel command based on target and heading,
+                               compute measured terrain heights and randomly push robots,
+                               compute and set fault
         """
         # 
-        env_ids = (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt)==0).nonzero(as_tuple=False).flatten()
-        self._resample_commands(env_ids)
+        resample_cmd_ids = (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt)==0).nonzero(as_tuple=False).flatten()
+        self._resample_commands(resample_cmd_ids)
         if self.cfg.commands.heading_command:
             forward = quat_apply(self.base_quat, self.forward_vec)
             heading = torch.atan2(forward[:, 1], forward[:, 0])
             self.commands[:, 2] = torch.clip(0.5*wrap_to_pi(self.commands[:, 3] - heading), -1., 1.)
+
+        if self.num_envs == 1:
+            fault_transit_ids = (self.episode_length_buf % int(self.fault_resampling_time / self.dt)==0).nonzero(as_tuple=False).flatten()
+            self._fault_transit(fault_transit_ids)
 
         if self.cfg.terrain.measure_heights:
             self.measured_heights = self._get_heights()
@@ -428,6 +433,44 @@ class LeggedRobot(BaseTask):
 
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
+
+    def _fault_transit(self, env_ids): # for testing
+        """ Randommly select faults of some environments
+        """
+        if len(env_ids) == 0:
+            return
+        for env_id in env_ids:
+            env = self.envs[env_id]
+            handle = self.gym.find_actor_handle(env, self.cfg.asset.name)
+
+            # fault_strength = np.random.uniform(self.randomize_motor_fault_lower,
+            #                                    self.randomize_motor_fault_upper)
+            fault_strength = self.fault_resampling_list[self.fault_resample_idx % len(self.fault_resampling_list)]
+            cprint('Fault: {}'.format(self.total_fault_idxs.cpu().numpy()), 'blue', attrs=['bold'])
+
+            self.total_fault_idxs = torch.tensor([env_id], device='cuda:0', dtype=torch.int64) if fault_strength < 0.02 \
+                                    else torch.tensor([], device='cuda:0', dtype=torch.int64)
+
+            dof_prop = self.gym.get_actor_dof_properties(env, handle)
+            motor_strength = []
+            for i_dof in range(self.num_dof):
+                if i_dof in self.motor_fault_dofs:
+                    rand_motor_strength = fault_strength  # fixed
+                else:
+                    rand_motor_strength = np.random.uniform(self.randomize_motor_strength_lower,
+                                                            self.randomize_motor_strength_upper)
+                # ! set gym's PD controller
+                dof_prop['stiffness'][i_dof] *= rand_motor_strength  # self.Kp
+                dof_prop['damping'][i_dof] *= rand_motor_strength  # self.Kd
+                motor_strength.append(rand_motor_strength)
+            self.gym.set_actor_dof_properties(env, handle, dof_prop)
+
+            self._update_priv_buf(env_id=env_id, name='motor_strength', value=motor_strength,
+                                  lower=self.randomize_motor_strength_lower, upper=self.randomize_motor_strength_upper)
+        self.fault_resample_idx += 1
+
+
+
 
     def _compute_fault_torques(self):
         torques = torch.zeros(self.num_envs, self.num_dof, dtype=torch.float,
@@ -669,6 +712,8 @@ class LeggedRobot(BaseTask):
                     print(f"PD gain of joint {name} were not defined, setting them to zero")
         self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
 
+        self.fault_resample_idx = 0
+
     def _prepare_reward_function(self):
         """ Prepares a list of reward functions, whcih will be called to compute the total reward.
             Looks for self._reward_<REWARD_NAME>, where <REWARD_NAME> are names of all non zero reward scales in the cfg.
@@ -776,17 +821,17 @@ class LeggedRobot(BaseTask):
         rigid_shape_props_asset = self.gym.get_asset_rigid_shape_properties(robot_asset)
 
         # save body names from the asset
-        body_names = self.gym.get_asset_rigid_body_names(robot_asset)
+        self.body_names = self.gym.get_asset_rigid_body_names(robot_asset)
         self.dof_names = self.gym.get_asset_dof_names(robot_asset)
-        self.num_bodies = len(body_names)
+        self.num_bodies = len(self.body_names)
         self.num_dofs = len(self.dof_names)
-        feet_names = [s for s in body_names if self.cfg.asset.foot_name in s]
+        feet_names = [s for s in self.body_names if self.cfg.asset.foot_name in s]
         penalized_contact_names = []
         for name in self.cfg.asset.penalize_contacts_on:
-            penalized_contact_names.extend([s for s in body_names if name in s])
+            penalized_contact_names.extend([s for s in self.body_names if name in s])
         termination_contact_names = []
         for name in self.cfg.asset.terminate_after_contacts_on:
-            termination_contact_names.extend([s for s in body_names if name in s])
+            termination_contact_names.extend([s for s in self.body_names if name in s])
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)
@@ -955,6 +1000,7 @@ class LeggedRobot(BaseTask):
         """
         self.gym.clear_lines(self.viewer)
         self.gym.refresh_rigid_body_state_tensor(self.sim)
+        np.set_printoptions(precision=4)
 
         # draw height lines
         if self.cfg.terrain.measure_heights:
@@ -970,6 +1016,7 @@ class LeggedRobot(BaseTask):
                     sphere_pose = gymapi.Transform(gymapi.Vec3(x, y, z), r=None)
                     gymutil.draw_lines(sphere_geom, self.gym, self.viewer, self.envs[i], sphere_pose)
 
+        com_geom = gymutil.WireframeSphereGeometry(0.03, 32, 32, None, color=(0.85, 0.1, 0.1))
         com_proj_geom = gymutil.WireframeSphereGeometry(0.03, 32, 32, None, color=(0, 1, 0))
         contact_geom = gymutil.WireframeSphereGeometry(0.03, 32, 32, None, color=(0, 0, 1))
         cop_geom = gymutil.WireframeSphereGeometry(0.03, 32, 32, None, color=(0.85, 0.5, 0.1))
@@ -977,10 +1024,15 @@ class LeggedRobot(BaseTask):
             # draw COM(= base pose) and its projection
             prop = self.gym.get_actor_rigid_body_properties(self.envs[i], self.actor_handles[i])
             base_pos = (self.root_states[i, :3]).cpu().numpy()
-            com_x = prop[0].com.x + base_pos[0]
-            com_y = prop[0].com.y + base_pos[1]
-            com_z, com_proj_z = prop[0].com.z + base_pos[2], 0
-            com_proj_pose = gymapi.Transform(gymapi.Vec3(com_x, com_y, com_proj_z), r=None)
+            com_sum, mass_sum = np.zeros(3), 0.
+            for i_prop, p in enumerate(prop):
+                mass_sum += p.mass
+                com_sum += p.mass * np.array([p.com.x, p.com.y, p.com.z])
+            com = com_sum / mass_sum
+            com += base_pos
+            com_pose = gymapi.Transform(gymapi.Vec3(com[0], com[1], com[2]), r=None)
+            com_proj_pose = gymapi.Transform(gymapi.Vec3(com[0], com[1], 0), r=None)
+            gymutil.draw_lines(com_geom, self.gym, self.viewer, self.envs[i], com_pose)
             gymutil.draw_lines(com_proj_geom, self.gym, self.viewer, self.envs[i], com_proj_pose)
 
             # draw contact point and COP projection
@@ -999,6 +1051,10 @@ class LeggedRobot(BaseTask):
             cop = cop_sum / torch.sum(contact_force)
             sphere_pose = gymapi.Transform(gymapi.Vec3(cop[0], cop[1], 0), r=None)
             gymutil.draw_lines(cop_geom, self.gym, self.viewer, self.envs[i], sphere_pose)
+
+            # # draw inverted pendulum
+            # cop = cop.cpu().numpy()
+            # self.gym.add_lines(self.viewer, self.envs[i], 1, [cop[0], cop[1], 0, com[0], com[1], com[2]], [0.85, 0.1, 0.5])
 
             # draw connected line between contact point (fault case and normal case)
             self._draw_contact_polygon(contact_state, self.envs[i])
@@ -1234,6 +1290,10 @@ class LeggedRobot(BaseTask):
         self.randomize_motor_fault_upper = rand_config.randomizeMotorFaultUpper
         self.motor_fault_joints = rand_config.motorFaultJoints
         self.total_fault_joint_poses = rand_config.totalFaultJointPoses
+        self.fault_resampling_time = rand_config.faultResampleTime
+        self.fault_resampling_list = rand_config.faultResampleList
+        self.fault_resampling_list = [float(i) for i in self.fault_resampling_list]
+
     def _setup_priv_option_config(self, p_config):
         self.enable_priv_mass = p_config.enableMass
         self.enable_priv_com = p_config.enableCOM
