@@ -435,9 +435,9 @@ class LeggedRobot(BaseTask):
         if self.total_fault_idxs.shape[0] == 0:
             return torques
 
-        fault_toques = self.p_gains[self.motor_fault_dofs] * (self.total_fault_joint_poses - self.dof_pos[self.total_fault_idxs, self.motor_fault_dofs]) \
-                       - self.d_gains[self.motor_fault_dofs] * self.dof_vel[self.total_fault_idxs, self.motor_fault_dofs]
-        torques[self.total_fault_idxs, self.motor_fault_dofs] = fault_toques
+        fault_toques = 0.5*self.p_gains[self.motor_fault_dofs] * (self.total_fault_joint_poses - self.dof_pos[self.total_fault_idxs[:,None], self.motor_fault_dofs]) \
+                       - 0.5*self.d_gains[self.motor_fault_dofs] * self.dof_vel[self.total_fault_idxs[:,None], self.motor_fault_dofs]
+        torques[self.total_fault_idxs[:,None], self.motor_fault_dofs] = fault_toques
         return torch.clip(torques, -self.torque_limits, self.torque_limits)
 
     def _compute_torques(self, actions):
