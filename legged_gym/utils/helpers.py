@@ -109,19 +109,20 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
         last_run = os.path.join(root, runs[-1])
     except:
         raise ValueError("No runs in this directory: " + root)
-    if load_run==-1:
-        load_run = last_run
-    else:
-        load_run = os.path.join(root, load_run)
+    # if load_run==-1:
+    #     load_run = last_run
+    # else:
+    #     load_run = os.path.join(root, load_run)
+    #
+    # if checkpoint==-1:
+    #     models = [file for file in os.listdir(load_run) if 'model' in file]
+    #     models.sort(key=lambda m: '{0:0>15}'.format(m))
+    #     model = models[-1]
+    # else:
+    #     model = "model_{}.pt".format(checkpoint)
 
-    if checkpoint==-1:
-        models = [file for file in os.listdir(load_run) if 'model' in file]
-        models.sort(key=lambda m: '{0:0>15}'.format(m))
-        model = models[-1]
-    else:
-        model = "model_{}.pt".format(checkpoint) 
-
-    load_path = os.path.join(load_run, model)
+    model = checkpoint
+    load_path = os.path.join(root, model)
     return load_path
 
 def update_cfg_from_args(env_cfg, cfg_train, args):
@@ -164,6 +165,25 @@ def get_args():
         {"name": "--num_envs", "type": int, "help": "Number of environments to create. Overrides config file if provided."},
         {"name": "--seed", "type": int, "help": "Random seed. Overrides config file if provided."},
         {"name": "--max_iterations", "type": int, "help": "Maximum number of training iterations. Overrides config file if provided."},
+
+        # ! RMA
+        {"name": "--output_name", "type": str, "default": "debug", "help": "where you save and load the nn policy"},
+        {"name": "--test", "action": "store_true", "default": False, "help": "whether or not test the policy"},
+        {"name": "--algo", "type": str, "default": "PPO", "help": "which algorithm used to train the policy, PPO or padapt"},
+        {"name": "--checkpoint_model", "type": str, "default": None, "help": "which policy model to load from"},
+        {"name": "--priv_info", "action": "store_true", "default": False, "help": "whether or not pass the privilege information as input."},
+        {"name": "--proprio_adapt", "action": "store_true", "default": False, "help": "whether or not use proprio state to do adaptation."},
+
+        # test policy
+        {"name": "--lin_vel_x", "type": float, "help": "linear velocity x."},
+        {"name": "--lin_vel_y", "type": float, "help": "linear velocity y."},
+        {"name": "--heading", "type": float, "help": "heading."},
+        {"name": "--fault", "type": float, "help": "fault by how many percentage."},
+        {"name": "--fault_transitions", "action": "append", "help": "<Required> Set flag"},
+
+        # export policy for usage in C++
+        {"name": "--export_policy", "action": "store_true", "default": False,
+         "help": "whether or not convert the network to jit(C++)."},
     ]
     # parse arguments
     args = gymutil.parse_arguments(
