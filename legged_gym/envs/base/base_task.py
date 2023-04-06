@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
@@ -29,10 +29,16 @@
 # Copyright (c) 2021 ETH Zurich, Nikita Rudin
 
 import sys
+from termcolor import cprint
+
 from isaacgym import gymapi
 from isaacgym import gymutil
 import numpy as np
 import torch
+
+import gym
+from gym import spaces
+
 
 # Base class for RL tasks
 class BaseTask():
@@ -73,14 +79,10 @@ class BaseTask():
         self.reset_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
         self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
         self.time_out_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
-        if self.num_privileged_obs is not None:
-            self.privileged_obs_buf = torch.zeros(self.num_envs, self.num_privileged_obs, device=self.device, dtype=torch.float)
-        else: 
-            self.privileged_obs_buf = None
-            # self.num_privileged_obs = self.num_obs
 
         self.extras = {}
 
+        self._allocate_buffers() # RMA specific buffers
         # create envs, sim and viewer
         self.create_sim()
         self.gym.prepare_sim(self.sim)
@@ -91,6 +93,7 @@ class BaseTask():
 
         # if running with a viewer, set up keyboard shortcuts and camera
         if self.headless == False:
+            cprint('Enable Visualization', 'green', attrs=['bold'])
             # subscribe to keyboard shortcuts
             self.viewer = self.gym.create_viewer(
                 self.sim, gymapi.CameraProperties())
@@ -99,24 +102,50 @@ class BaseTask():
             self.gym.subscribe_viewer_keyboard_event(
                 self.viewer, gymapi.KEY_V, "toggle_viewer_sync")
 
+        self.obs_space = spaces.Box(np.ones(self.num_obs, dtype=np.float32) * -np.Inf, np.ones(self.num_obs, dtype=np.float32) * np.Inf)
+        self.act_space = spaces.Box(np.ones(self.num_actions, dtype=np.float32) * -1., np.ones(self.num_actions, dtype=np.float32) * 1.)
+        self.clip_obs = cfg.normalization.clip_observations
+        self.obs_dict = {}
+
     def get_observations(self):
-        return self.obs_buf
-    
-    def get_privileged_observations(self):
-        return self.privileged_obs_buf
+        return self.obs_dict
 
     def reset_idx(self, env_ids):
         """Reset selected robots"""
         raise NotImplementedError
 
     def reset(self):
-        """ Reset all robots"""
-        self.reset_idx(torch.arange(self.num_envs, device=self.device))
-        obs, privileged_obs, _, _, _ = self.step(torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False))
-        return obs, privileged_obs
+        """Reset the environment.
+        Returns:
+            Observation dictionary
+        """
+        env_ids = self.reset_buf.nonzero().squeeze(-1)
+        self.reset_idx(env_ids)
+        zero_actions = torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False)
+        # step the simulator
+        self.step(zero_actions)
+        self.obs_dict['obs'] = torch.clip(self.obs_buf, -self.clip_obs, self.clip_obs)
+        return self.obs_dict
 
     def step(self, actions):
         raise NotImplementedError
+
+    def _allocate_buffers(self):
+        # additional buffer
+        self.obs_buf_lag_history = torch.zeros((self.num_envs, 80, self.num_obs), device=self.device, dtype=torch.float)
+        self._allocate_task_buffer(self.num_envs)
+    def _allocate_task_buffer(self, num_envs):
+        pass
+
+    @property
+    def observation_space(self) -> gym.Space:
+        """Get the environment's observation space."""
+        return self.obs_space
+
+    @property
+    def action_space(self) -> gym.Space:
+        """Get the environment's action space."""
+        return self.act_space
 
     def render(self, sync_frame_time=True):
         if self.viewer:

@@ -195,6 +195,7 @@ class LeggedRobotCfg(BaseConfig):
         substeps = 1
         gravity = [0., 0., -9.81]  # [m/s^2]
         up_axis = 1  # 0 is y, 1 is z
+        enable_debug_viz = False
 
         class physx:
             num_threads = 10
@@ -213,6 +214,47 @@ class LeggedRobotCfg(BaseConfig):
         pos_num_history_stack = 1
         vel_num_history_stack = 1
         action_num_history_stack = 1
+
+    # ***************** RMA specific *****************
+    class RMA:
+        class adaptor:
+            propHistoryLen = 30
+            privInfoDim = 17
+
+        class randomization:
+            # Randomization Property
+            randomizeMass = True
+            randomizeMassLower = 0.01
+            randomizeMassUpper = 0.25
+            randomizeCOM = True
+            randomizeCOMLower = -0.01
+            randomizeCOMUpper = 0.01
+            randomizeFriction = True
+            randomizeFrictionLower = 0.5
+            randomizeFrictionUpper = 1.25
+            randomizeMotorStrength = True
+            randomizeMotorStrengthLower = 0.9
+            randomizeMotorStrengthUpper = 1.1
+
+            randomizeMotorFault = True
+            randomizeMotorFaultLower = 0.02  # extreme case
+            randomizeMotorFaultUpper = 1.0  # normal
+            motorFaultJoints = ['FL_calf_joint', 'FR_calf_joint']  # which joint to fault
+            motorTotalFaultProb = 0.1  # fine tune 0.1
+            totalFaultJointPoses = [0.1, 0.8, -2.6,
+                                    -0.1, 0.8, -2.6,
+                                    0.1, 1.0, -2.6,
+                                    -0.1, 1.0, -2.6]  # freeze total fault joint angle
+            faultResampleTime = 3.0
+            faultResampleList = []
+
+            jointNoiseScale = 0.02
+
+        class privInfo:
+            enableMass = True
+            enableCOM = True
+            enableFriction = True
+            enableMotorStrength = True
 
 
 class LeggedRobotCfgPPO(BaseConfig):
@@ -256,6 +298,6 @@ class LeggedRobotCfgPPO(BaseConfig):
         run_name = ''
         # load and resume
         resume = False
-        load_run = '49ob_contact'  # -1 = last run
+        load_run = 'Apr06_15-48-51_'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
