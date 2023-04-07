@@ -301,3 +301,10 @@ class LeggedRobotCfgPPO(BaseConfig):
         load_run = 'Apr06_16-26-37_'  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and chkpt
+
+    class RMA:
+        export_policy = False
+        priv_mlp_units = [256, 128, 8]
+        priv_info = False
+        priv_info_dim = 17
+        proprio_adapt = False

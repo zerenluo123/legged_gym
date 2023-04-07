@@ -147,6 +147,21 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
             cfg_train.runner.load_run = args.load_run
         if args.checkpoint is not None:
             cfg_train.runner.checkpoint = args.checkpoint
+        if args.priv_info:
+            cfg_train.RMA.priv_info = args.priv_info
+        if args.proprio_adapt:
+            cfg_train.RMA.proprio_adapt = args.proprio_adapt
+        if args.lin_vel_x is not None and args.lin_vel_y is not None and args.heading is not None:
+            env_cfg.commands.ranges.lin_vel_x = [args.lin_vel_x, args.lin_vel_x]
+            env_cfg.commands.ranges.lin_vel_y = [args.lin_vel_y, args.lin_vel_y]
+            env_cfg.commands.ranges.heading = [args.heading, args.heading]
+        if args.fault is not None: # fix the fault rand sample range
+            env_cfg.RMA.randomization.randomizeMotorFaultLower = args.fault
+            env_cfg.RMA.randomization.randomizeMotorFaultUpper = args.fault
+        if args.fault_transitions is not None:
+            env_cfg.RMA.randomization.faultResampleList = args.fault_transitions
+        if args.export_policy:
+            cfg_train.RMA.export_policy = args.export_policy
 
     return env_cfg, cfg_train
 
