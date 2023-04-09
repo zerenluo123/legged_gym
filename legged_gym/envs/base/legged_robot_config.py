@@ -122,7 +122,7 @@ class LeggedRobotCfg(BaseConfig):
         thickness = 0.01
 
     class domain_rand:
-        randomize_friction = True
+        randomize_friction = False
         friction_range = [0.5, 1.25]
         randomize_base_mass = False
         added_mass_range = [-1., 1.]
@@ -224,7 +224,7 @@ class LeggedRobotCfg(BaseConfig):
         class randomization:
             # Randomization Property
             randomizeMass = True
-            randomizeMassLower = 0.01
+            randomizeMassLower = -0.25
             randomizeMassUpper = 0.25
             randomizeCOM = True
             randomizeCOMLower = -0.01

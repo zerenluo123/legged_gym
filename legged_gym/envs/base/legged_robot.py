@@ -817,14 +817,68 @@ class LeggedRobot(BaseTask):
             rigid_shape_props = self._process_rigid_shape_props(rigid_shape_props_asset, i)
             self.gym.set_asset_rigid_shape_properties(robot_asset, rigid_shape_props)
             actor_handle = self.gym.create_actor(env_handle, robot_asset, start_pose, self.cfg.asset.name, i, self.cfg.asset.self_collisions, 0)
+
             dof_props = self._process_dof_props(dof_props_asset, i)
             self.gym.set_actor_dof_properties(env_handle, actor_handle, dof_props)
             self.gym.enable_actor_dof_force_sensors(env_handle, actor_handle)  # Note: important to read torque !!!!
             body_props = self.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
             body_props = self._process_rigid_body_props(body_props, i)
             self.gym.set_actor_rigid_body_properties(env_handle, actor_handle, body_props, recomputeInertia=True)
+
+            # ! add privilige information
+            delta_mass = 0.
+            if self.randomize_mass:
+                prop = self.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
+                delta_mass = np.random.uniform(self.randomize_mass_lower, self.randomize_mass_upper)
+                prop[0].mass += delta_mass  # only randomize base mass
+                self.gym.set_actor_rigid_body_properties(env_handle, actor_handle, prop)
+            self._update_priv_buf(env_id=i, name='mass', value=delta_mass,
+                                  lower=self.randomize_mass_lower, upper=self.randomize_mass_upper)
+
+            friction = 1.0
+            if self.randomize_friction:
+                rand_friction = np.random.uniform(self.randomize_friction_lower, self.randomize_friction_upper)
+                rigid_shape_props = self.gym.get_actor_rigid_shape_properties(env_handle, actor_handle)
+                for p in rigid_shape_props:
+                    p.friction = rand_friction
+                self.gym.set_actor_rigid_shape_properties(env_handle, actor_handle, rigid_shape_props)
+                friction = rand_friction
+            self._update_priv_buf(env_id=i, name='friction', value=friction,
+                                  lower=self.randomize_friction_lower, upper=self.randomize_friction_upper)
+
+            com = [0, 0, 0]
+            if self.randomize_com:
+                prop = self.gym.get_actor_rigid_body_properties(env_handle, actor_handle)
+                com = [np.random.uniform(self.randomize_com_lower, self.randomize_com_upper),
+                       np.random.uniform(self.randomize_com_lower, self.randomize_com_upper),
+                       np.random.uniform(self.randomize_com_lower, self.randomize_com_upper)]
+                prop[0].com.x, prop[0].com.y, prop[0].com.z = com
+                self.gym.set_actor_rigid_body_properties(env_handle, actor_handle, prop)
+            self._update_priv_buf(env_id=i, name='com', value=com,
+                                  lower=self.randomize_com_lower, upper=self.randomize_com_upper)
+
+            motor_strength = []
+            if self.randomize_motor_strength:
+                dof_prop = self.gym.get_actor_dof_properties(env_handle, actor_handle)
+                for i_dof in range(self.num_dof):
+                    rand_motor_strength = np.random.uniform(self.randomize_motor_strength_lower,
+                                                            self.randomize_motor_strength_upper)
+                    # ! set gym's PD controller
+                    dof_prop['stiffness'][i_dof] *= rand_motor_strength  # self.Kp
+                    dof_prop['damping'][i_dof] *= rand_motor_strength  # self.Kd
+                    motor_strength.append(rand_motor_strength)
+                self.gym.set_actor_dof_properties(env_handle, actor_handle, dof_prop)
+                # print("**** fault_dof ", fault_dof)
+                # print("**** motor_strength ", motor_strength)
+                # print("**** KP ", dof_prop['stiffness'])
+                # print("**** KD ", dof_prop['damping'])
+                # print("********************")
+            self._update_priv_buf(env_id=i, name='motor_strength', value=motor_strength,
+                                  lower=self.randomize_motor_strength_lower, upper=self.randomize_motor_strength_upper)
+
             self.envs.append(env_handle)
             self.actor_handles.append(actor_handle)
+
 
         self.feet_indices = torch.zeros(len(feet_names), dtype=torch.long, device=self.device, requires_grad=False)
         for i in range(len(feet_names)):
