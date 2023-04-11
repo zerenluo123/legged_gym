@@ -259,7 +259,8 @@ class LeggedRobot(BaseTask):
                                   self.dof_pos_hist[:, :(self.pos_num_hist - 1) * self.num_dof] * self.obs_scales.dof_pos,
                                   self.dof_vel_hist[:, :(self.vel_num_hist - 1) * self.num_dof] * self.obs_scales.dof_vel,
                                   self.dof_action_hist[:, :(self.action_num_hist - 1) * self.num_dof] * 1.0, # no scale with action
-                                  contact
+                                  contact,
+                                  # self.base_lin_vel * self.obs_scales.lin_vel,
                                   ), dim=-1)
 
         # # add perceptive inputs if not blind
@@ -586,6 +587,7 @@ class LeggedRobot(BaseTask):
 
         # TODO: tune the contact noise
         noise_vec[45 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1 + self.action_num_hist - 1):45 + 12 * (self.pos_num_hist - 1 + self.vel_num_hist - 1 + self.action_num_hist - 1) + 4] = 0.
+        # noise_vec[-4:] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
         print("&&&&&&&&& noise_vec shape2: ", noise_vec.shape)
 
         # if self.cfg.terrain.measure_heights:
@@ -1185,6 +1187,13 @@ class LeggedRobot(BaseTask):
         # cosmetic penalty for hip motion
         return torch.sum(torch.abs(self.dof_pos[:, [0, 3, 6, 9]] - self.default_dof_pos[:, [0, 3, 6, 9]]), dim=1)
 
+    def _reward_thigh_motion(self):
+        # cosmetic penalty for hip motion
+        return torch.sum(torch.abs(self.dof_pos[:, [1, 4, 7, 10]] - self.default_dof_pos[:, [1, 4, 7, 10]]), dim=1)
+
+    def _reward_calf_motion(self):
+        # cosmetic penalty for hip motion
+        return torch.sum(torch.abs(self.dof_pos[:, [2, 5, 8, 11]] - self.default_dof_pos[:, [2, 5, 8, 11]]), dim=1)
 
 
     def _change_cmds(self, vx, vy, vang):

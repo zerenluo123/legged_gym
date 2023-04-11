@@ -86,17 +86,20 @@ class Go1RoughCfg(LeggedRobotCfg):
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.2
+        base_height_target = 0.25
         terminate_base_height = True
 
         class scales(LeggedRobotCfg.rewards.scales):
-            # orientation = -5.0
+            orientation = -5.0
             # feet_air_time = 0.5
             torques = -0.00025
-            dof_pos_limits = -100.0
+            dof_pos_limits = -10.0
             # action_rate = -0.04
             # energy = -0.00008
             hip_motion = -0.05
+            thigh_motion = -0.05
+            calf_motion = -0.05
+
 
     # class normalization(LeggedRobotCfg.normalization):
     #     clip_observations = 100.0
