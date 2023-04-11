@@ -64,12 +64,6 @@ def play(args):
     train_cfg.runner.resume = True # set the mode to be evalution
     ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
     policy = ppo_runner.get_inference_policy(device=env.device)
-    
-    # export policy as a jit module (used to run it from C++)
-    if EXPORT_POLICY:
-        path = os.path.join(LEGGED_GYM_ROOT_DIR, 'outputs', args.output_name, 'exported', 'policies')
-        export_policy_as_jit(ppo_runner.alg.actor_critic, path)
-        print('Exported policy as jit script to: ', path)
 
     logger = Logger(env.dt)
     robot_index = 0 # which robot is used for logging
@@ -80,24 +74,6 @@ def play(args):
     camera_vel = np.array([1., 1., 0.])
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
     img_idx = 0
-
-    if BENCHMARK_GAZEBO:
-        # load data and save
-        gazebo_data_path = '/home/zerenluo/issac_sim/data'
-        gazebo_pos_path = os.path.join(gazebo_data_path, '49_contact_pos.txt')
-        gazebo_pos = np.loadtxt(gazebo_pos_path, delimiter=',')[300:1600, 1::2]
-        logger.log_gazebo_pos_states(gazebo_pos, 2)
-
-        obs_index = 0
-        gazebo_obs_path = os.path.join(gazebo_data_path, '49_contact_obs.txt')
-        gazebo_obs = np.loadtxt(gazebo_obs_path, delimiter=',')[:, 1::2]
-        logger.log_gazebo_obs_states(gazebo_obs, obs_index)
-
-
-        # import matplotlib.pyplot as plt
-        # plt.plot(np.arange(gazebo_pos.shape[0]), gazebo_pos[:, joint_index])
-        # plt.show()
-
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs_dict)
@@ -128,12 +104,6 @@ def play(args):
                     'contact_forces_z': env.contact_forces[robot_index, env.feet_indices, 2].cpu().numpy()
                 }
             )
-            # if BENCHMARK_GAZEBO:
-            #     logger.log_states(
-            #         {
-            #             'gazebo_pos': gazebo_pos_frame[joint_index]
-            #         }
-            #     )
 
         elif i==stop_state_log:
             logger.plot_states()
@@ -146,9 +116,7 @@ def play(args):
             logger.print_rewards()
 
 if __name__ == '__main__':
-    EXPORT_POLICY = True
     RECORD_FRAMES = False
     MOVE_CAMERA = False
-    BENCHMARK_GAZEBO = False
     args = get_args()
     play(args)

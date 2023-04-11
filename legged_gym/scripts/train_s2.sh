@@ -12,6 +12,8 @@ echo extra "${EXTRA_ARGS}"
 
 CUDA_VISIBLE_DEVICES=${GPUS} \
 python train.py --task=go1 --headless --seed=${SEED} \
---algo=PPO \
---output_name=ppo/"${CACHE}" \
+--algo=ProprioAdapt \
+--priv_info --proprio_adapt \
+--output_name=go1/"${CACHE}" \
+--checkpoint_model=outputs/go1/"${CACHE}"/stage1_nn/last.pth \
 ${EXTRA_ARGS}

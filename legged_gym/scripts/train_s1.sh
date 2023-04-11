@@ -12,6 +12,7 @@ echo extra "${EXTRA_ARGS}"
 
 CUDA_VISIBLE_DEVICES=${GPUS} \
 python train.py --task=go1 --headless --seed=${SEED} \
+--algo=PPO \
 --priv_info \
 --output_name=go1/"${CACHE}" \
 ${EXTRA_ARGS}
