@@ -170,7 +170,7 @@ class TaskRegistry():
         if resume:
             # load previously trained model
             # resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run, checkpoint=train_cfg.runner.checkpoint)
-            resume_path = get_load_path(log_dir, checkpoint=args.checkpoint_model)
+            resume_path = get_load_path(os.path.join(log_dir, "stage1_nn" if args.s_flag == "1" else "stage2_nn"), checkpoint=args.checkpoint_model)
 
             print(f"Loading model from: {resume_path}")
             runner.load(resume_path)

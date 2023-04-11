@@ -195,6 +195,7 @@ def get_args():
         {"name": "--heading", "type": float, "help": "heading."},
         {"name": "--fault", "type": float, "help": "fault by how many percentage."},
         {"name": "--fault_transitions", "action": "append", "help": "<Required> Set flag"},
+        {"name": "--s_flag", "type": str, "1": None, "help": "stage 1 or stage 2 model"},
 
         # export policy for usage in C++
         {"name": "--export_policy", "action": "store_true", "default": False,
