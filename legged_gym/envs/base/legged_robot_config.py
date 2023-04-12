@@ -308,3 +308,4 @@ class LeggedRobotCfgPPO(BaseConfig):
         priv_info = False
         priv_info_dim = 17
         proprio_adapt = False
+        checkpoint_model = None

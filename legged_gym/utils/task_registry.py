@@ -147,25 +147,30 @@ class TaskRegistry():
             log_dir = os.path.join(log_root, args.output_name)
 
         if not train_cfg.runner.resume:
-            # save cfg file in the checkpoint dir
-            if os.path.exists(log_dir):
+            # check whether execute train by mistake:
+            last_ckpt_path = os.path.join(
+                log_dir,
+                'stage1_nn' if args.algo == 'PPO' else 'stage2_nn', 'last.pth'
+            )
+            if os.path.exists(last_ckpt_path):
                 user_input = input(
                     f'are you intentionally going to overwrite files in {args.output_name}, type yes to continue \n')
                 if user_input != 'yes':
                     exit()
-            else:
-                os.makedirs(log_dir)
-
-            save_item = os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'envs', 'base', 'legged_robot_config.py')
-            copyfile(save_item, log_dir + '/train_cfg_general.py')
-
-            save_item = os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'envs', name, name + '_config.py')
-            copyfile(save_item, log_dir + '/train_cfg_robot.py')
+            # else:
+            #     os.makedirs(log_dir)
+            #
+            # save_item = os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'envs', 'base', 'legged_robot_config.py')
+            # copyfile(save_item, log_dir + '/train_cfg_general.py')
+            #
+            # save_item = os.path.join(LEGGED_GYM_ROOT_DIR, 'legged_gym', 'envs', name, name + '_config.py')
+            # copyfile(save_item, log_dir + '/train_cfg_robot.py')
 
 
 
         train_cfg_dict = class_to_dict(train_cfg)
         runner = eval(args.algo + "PolicyRunner")(env, train_cfg_dict, log_dir, device=args.rl_device)
+        print("**************** RUNNER ", runner)
 
         #save resume path before creating a new log_dir
         resume = train_cfg.runner.resume

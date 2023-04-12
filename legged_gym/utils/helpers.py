@@ -162,6 +162,8 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
             env_cfg.RMA.randomization.faultResampleList = args.fault_transitions
         if args.export_policy:
             cfg_train.RMA.export_policy = args.export_policy
+        if args.checkpoint_model:
+            cfg_train.RMA.checkpoint_model = args.checkpoint_model
 
     return env_cfg, cfg_train
 
